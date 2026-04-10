@@ -2,7 +2,9 @@
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
 #include <lvgl.h>
+#include <time.h>
 #include "um_nav.h"
+#include "um_shared.h"
 
 // Logo image descriptor defined in um_welcome.cpp
 extern const lv_image_dsc_t um_logo_dsc;
@@ -49,9 +51,12 @@ static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
 // -------------------------------------------------------
 // State
 // -------------------------------------------------------
-static lv_obj_t  *menu_root     = NULL;
-static lv_obj_t  *menu_tiles[6] = {};
-static int        menu_focused  = 0;
+static lv_obj_t   *menu_root          = NULL;
+static lv_obj_t   *menu_tiles[6]      = {};
+static int         menu_focused       = 0;
+static lv_obj_t   *menu_time_lbl      = NULL;  // topbar clock
+static lv_obj_t   *menu_coord_icon    = NULL;  // topbar coordinator indicator
+static lv_timer_t *menu_topbar_timer  = NULL;
 
 // -------------------------------------------------------
 // Tile focus / unfocus visuals
@@ -93,14 +98,17 @@ static void menu_tile_key_cb(lv_event_t *e)
         menu_apply_focus(menu_focused, true);
         lv_group_focus_obj(menu_tiles[menu_focused]);
         lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
+        lv_event_stop_processing(e); // prevent LVGL group from also advancing focus
     } else if (key == LV_KEY_LEFT || key == LV_KEY_UP) {
         menu_apply_focus(menu_focused, false);
         menu_focused = (menu_focused - 1 + TILE_COUNT) % TILE_COUNT;
         menu_apply_focus(menu_focused, true);
         lv_group_focus_obj(menu_tiles[menu_focused]);
         lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
+        lv_event_stop_processing(e); // prevent LVGL group from also advancing focus
     } else if (key == LV_KEY_ENTER) {
         um_nav_go(TILES[menu_focused].target);
+        lv_event_stop_processing(e);
     }
 }
 
@@ -123,6 +131,41 @@ static void menu_tile_focused_cb(lv_event_t *e)
         if (menu_tiles[i] == tile) menu_focused = i;
     }
     lv_obj_scroll_to_view(tile, LV_ANIM_ON);
+}
+
+// Called when the power button in the top bar receives focus —
+// clears the tile highlight so the UI doesn't show two things selected.
+static void menu_pwr_focused_cb(lv_event_t *e)
+{
+    for (int i = 0; i < TILE_COUNT; i++)
+        menu_apply_focus(i, false);
+}
+
+// -------------------------------------------------------
+// Topbar update — called by timer every 30 s
+// -------------------------------------------------------
+static void menu_topbar_update_cb(lv_timer_t *)
+{
+    // ---- Time ----
+    if (menu_time_lbl) {
+        struct tm t = {};
+#ifndef SIM_BUILD
+        // Time will be synced into the RTC via an incoming mesh message
+        instance.rtc.getDateTime(&t);
+#else
+        time_t now = time(NULL);
+        t = *localtime(&now);
+#endif
+        lv_label_set_text_fmt(menu_time_lbl, "%02d:%02d", t.tm_hour, t.tm_min);
+    }
+
+    // ---- Coordinator indicator ----
+    if (menu_coord_icon) {
+        bool connected = um_mesh_has_coordinator();
+        lv_obj_set_style_text_color(menu_coord_icon,
+            connected ? lv_color_make(0, 160, 255) : lv_color_make(70, 70, 80),
+            LV_PART_MAIN);
+    }
 }
 
 // -------------------------------------------------------
@@ -153,18 +196,43 @@ void um_menu_create()
     lv_obj_set_flex_flow(topbar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(topbar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
+    // Left: app name
     lv_obj_t *app_lbl = lv_label_create(topbar);
     lv_label_set_text(app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
     lv_obj_set_style_text_color(app_lbl, lv_color_make(0, 180, 220), LV_PART_MAIN);
     lv_obj_set_style_text_font(app_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
 
-    lv_obj_t *node_lbl = lv_label_create(topbar);
+    // Center: clock — updated by timer
+    menu_time_lbl = lv_label_create(topbar);
+    lv_label_set_text(menu_time_lbl, "--:--");
+    lv_obj_set_style_text_color(menu_time_lbl, lv_color_make(200, 200, 210), LV_PART_MAIN);
+    lv_obj_set_style_text_font(menu_time_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+
+    // Right container: coordinator icon + power button
+    lv_obj_t *right_box = lv_obj_create(topbar);
+    lv_obj_set_size(right_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(right_box, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(right_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(right_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(right_box, 6, LV_PART_MAIN);
+    lv_obj_clear_flag(right_box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(right_box, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(right_box, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    // Coordinator indicator: wifi symbol, gray = no coordinator, blue = connected
+    menu_coord_icon = lv_label_create(right_box);
+    lv_label_set_text(menu_coord_icon, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_font(menu_coord_icon, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_coord_icon, lv_color_make(70, 70, 80), LV_PART_MAIN);
+
+    // Hostname
+    lv_obj_t *node_lbl = lv_label_create(right_box);
     lv_label_set_text(node_lbl, NODE_NAME);
     lv_obj_set_style_text_color(node_lbl, lv_color_make(130, 130, 145), LV_PART_MAIN);
     lv_obj_set_style_text_font(node_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
 
     // Power / sleep button
-    lv_obj_t *pwr_btn = lv_btn_create(topbar);
+    lv_obj_t *pwr_btn = lv_btn_create(right_box);
     lv_obj_set_size(pwr_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(pwr_btn, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_bg_color(pwr_btn, lv_color_make(60, 0, 0),
@@ -181,6 +249,7 @@ void um_menu_create()
     lv_label_set_text(pwr_lbl, LV_SYMBOL_POWER);
     lv_obj_set_style_text_color(pwr_lbl, lv_color_make(200, 60, 60), LV_PART_MAIN);
     lv_obj_center(pwr_lbl);
+    lv_obj_add_event_cb(pwr_btn, menu_pwr_focused_cb, LV_EVENT_FOCUSED, NULL);
 
     // ---- Thin accent line under topbar ----
     lv_obj_t *accent_line = lv_obj_create(menu_root);
@@ -296,11 +365,18 @@ void um_menu_create()
     lv_label_set_text(hint_lbl, LV_SYMBOL_LEFT " / " LV_SYMBOL_RIGHT " navigate      " LV_SYMBOL_OK " select");
     lv_obj_set_style_text_color(hint_lbl, lv_color_make(130, 130, 145), LV_PART_MAIN);
     lv_obj_set_style_text_font(hint_lbl, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    // ---- Topbar timer: update clock + coordinator icon every 30 s ----
+    menu_topbar_timer = lv_timer_create(menu_topbar_update_cb, 30000, NULL);
+    lv_timer_ready(menu_topbar_timer); // fire immediately to show current time
 }
 
 void um_menu_destroy()
 {
     if (!menu_root) return;
+    if (menu_topbar_timer) { lv_timer_del(menu_topbar_timer); menu_topbar_timer = NULL; }
+    menu_time_lbl   = NULL;
+    menu_coord_icon = NULL;
     lv_group_t *g = lv_group_get_default();
     if (g) lv_group_remove_all_objs(g);
     lv_obj_del(menu_root);

@@ -598,6 +598,16 @@ static void um_timer_cb(lv_timer_t *t)
 }
 
 // -------------------------------------------------------
+// Public state query — used by menu topbar
+// -------------------------------------------------------
+bool um_mesh_has_coordinator()
+{
+    for (int i = 0; i < 6; i++)
+        if (um_coordMac[i] != 0) return true;
+    return false;
+}
+
+// -------------------------------------------------------
 // um_mesh_create / um_mesh_destroy  (called by nav)
 // -------------------------------------------------------
 void um_mesh_create()

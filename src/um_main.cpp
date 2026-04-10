@@ -31,7 +31,8 @@ void setup()
         }
     }
 
-    instance.setBrightness(DEVICE_MAX_BRIGHTNESS_LEVEL);
+    // Load persisted settings before the UI reads any of these values
+    um_settings_load();
 
     // Show boot splash; it auto-advances to the menu after 3 s
     um_welcome_create();

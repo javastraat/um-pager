@@ -4,6 +4,9 @@
 #include <lvgl.h>
 #include "um_nav.h"
 #include "um_shared.h"
+#ifndef SIM_BUILD
+#include <Preferences.h>
+#endif
 
 static lv_obj_t *settings_root = NULL;
 
@@ -156,7 +159,10 @@ static void sleep_timeout_cb(lv_event_t *e)
 static void settings_key_cb(lv_event_t *e)
 {
     uint32_t key = lv_event_get_key(e);
-    if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) um_nav_back();
+    if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) {
+        um_settings_save();
+        um_nav_back();
+    }
 }
 
 // LilyGoLib registers the encoder as a keypad indev, so LVGL never
@@ -204,7 +210,10 @@ static void slider_key_cb(lv_event_t *e)
     }
 
     // Not editing — ESC/Backspace → back
-    if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) um_nav_back();
+    if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) {
+        um_settings_save();
+        um_nav_back();
+    }
 }
 
 // Helper: fix a timeout slider label after make_slider_row initialises it as "%"
@@ -214,6 +223,37 @@ static void fix_timeout_label(lv_obj_t *slider, int val_s)
     if (!lbl) return;
     if (val_s == 0) lv_label_set_text(lbl, "Never");
     else            lv_label_set_text_fmt(lbl, "%ds", val_s);
+}
+
+// -------------------------------------------------------
+// NVS persistence
+// -------------------------------------------------------
+void um_settings_load()
+{
+#ifndef SIM_BUILD
+    Preferences p;
+    p.begin("um", true); // read-only namespace
+    instance.setBrightness(p.getUChar("disp_br",  DEVICE_MAX_BRIGHTNESS_LEVEL));
+    instance.kb.setBrightness(p.getUChar("kb_br", 128));
+    um_dim_timeout_ms   = p.getUInt ("dim_to",  30000);
+    um_dim_brightness   = p.getUChar("dim_br",  20);
+    um_sleep_timeout_ms = p.getUInt ("sleep_to", 60000);
+    p.end();
+#endif
+}
+
+void um_settings_save()
+{
+#ifndef SIM_BUILD
+    Preferences p;
+    p.begin("um", false); // read-write
+    p.putUChar("disp_br",  instance.getBrightness());
+    p.putUChar("kb_br",    instance.kb.getBrightness());
+    p.putUInt ("dim_to",   (uint32_t)um_dim_timeout_ms);
+    p.putUChar("dim_br",   (uint8_t)um_dim_brightness);
+    p.putUInt ("sleep_to", (uint32_t)um_sleep_timeout_ms);
+    p.end();
+#endif
 }
 
 // -------------------------------------------------------
@@ -327,7 +367,7 @@ void um_settings_create()
     lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
-    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_settings_save(); um_nav_back(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(back_btn, settings_key_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");

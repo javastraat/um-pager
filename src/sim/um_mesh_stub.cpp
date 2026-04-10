@@ -70,6 +70,11 @@ void um_mesh_create()
     }
 }
 
+bool um_mesh_has_coordinator()
+{
+    return false; // no real mesh in the simulator
+}
+
 void um_mesh_destroy()
 {
     if (!mesh_root) return;

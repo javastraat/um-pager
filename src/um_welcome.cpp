@@ -52,8 +52,8 @@ void um_welcome_create()
     // Size must be set explicitly so the flex layout doesn't see 512×512.
     lv_obj_t *img = lv_image_create(welcome_root);
     lv_image_set_src(img, &um_logo_dsc);
-    lv_image_set_scale(img, 40);
-    lv_obj_set_size(img, 80, 80);
+    lv_image_set_scale(img, 50);
+    lv_obj_set_size(img, 100, 100);
     // Additive blend: black (0,0,0) pixels add nothing to the background,
     // making the logo's black fill transparent on any dark background.
     lv_obj_set_style_blend_mode(img, LV_BLEND_MODE_ADDITIVE, LV_PART_MAIN);
