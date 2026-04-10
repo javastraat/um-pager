@@ -4,6 +4,7 @@
 #include <lvgl.h>
 #include "config.h"
 #include "ota_update.h"
+#include "helpers/fw_download.h"
 #include "um_nav.h"
 #include "um_shared.h"
 #include "helpers/um_storage.h"
@@ -57,6 +58,25 @@ void loop()
             startOtaUpdate();
         }
         delay(UM_OTA_LOOP_DELAY_MS);
+        return;
+    }
+
+    if (um_fwDownloadRequested) {
+        static bool fwStarted = false;
+        if (!fwStarted) {
+            fwStarted = true;
+            startFwDownload(um_fw_widgets.bar,
+                            um_fw_widgets.status_lbl,
+                            um_fw_widgets.close_btn);
+            // startFwDownload returns on error (or success).
+            // The overlay + close_btn are still alive on screen.
+            um_fwDownloadRequested = false;
+            fwStarted = false;
+        }
+        // Keep running LVGL so the overlay and close/restart button remain interactive
+        instance.loop();
+        lv_timer_handler();
+        delay(UM_MAIN_LOOP_DELAY_MS);
         return;
     }
 

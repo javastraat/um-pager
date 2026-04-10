@@ -22,6 +22,23 @@ extern char                um_msg_server_name[UM_MSG_SERVER_NAME_LEN];
 // Reset to 0 when the Messages screen is opened.
 extern volatile uint32_t um_unread_count;
 
+// -------------------------------------------------------
+// Firmware-over-SD download
+// -------------------------------------------------------
+// Set true by the Download button in um_info.cpp; cleared by um_main.cpp
+// after startFwDownload() returns.
+extern volatile bool um_fwDownloadRequested;
+
+// LVGL widget handles for the download progress overlay.
+// Set by um_info.cpp before raising the flag so um_main.cpp can pass
+// them to startFwDownload().
+struct um_fw_widgets_t {
+    lv_obj_t *bar;
+    lv_obj_t *status_lbl;
+    lv_obj_t *close_btn;
+};
+extern um_fw_widgets_t um_fw_widgets;
+
 // True when a coordinator MAC has been found by the mesh screen.
 // Safe to call from any screen — the mesh keeps running in the background.
 bool um_mesh_has_coordinator();

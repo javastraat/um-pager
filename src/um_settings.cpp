@@ -233,7 +233,7 @@ void um_settings_load()
 {
 #ifndef SIM_BUILD
     Preferences p;
-    p.begin("um", true); // read-only namespace
+    p.begin("um", false); // read-write so the namespace is created on first boot
     instance.setBrightness(p.getUChar("disp_br",  DEVICE_MAX_BRIGHTNESS_LEVEL));
     instance.kb.setBrightness(p.getUChar("kb_br", UM_DEFAULT_KB_BRIGHTNESS));
     um_dim_timeout_ms   = p.getUInt ("dim_to",   UM_DEFAULT_DIM_TIMEOUT_MS);

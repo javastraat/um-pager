@@ -21,7 +21,9 @@ static void um_key_bsp_cb(lv_event_t *e);
 // -------------------------------------------------------
 enum UMState { UM_DISCOVERING, UM_CONNECTED, UM_NO_COORD };
 
-volatile bool            um_otaRequested = false;
+volatile bool            um_otaRequested        = false;
+volatile bool            um_fwDownloadRequested = false;
+um_fw_widgets_t          um_fw_widgets          = {};
 
 static UniversalMesh     um_mesh;
 static volatile UMState  um_state    = UM_DISCOVERING;

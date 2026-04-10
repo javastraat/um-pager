@@ -9,7 +9,9 @@
 #include "um_nav.h"
 #include "um_shared.h"
 
-volatile bool       um_otaRequested     = false;
+volatile bool       um_otaRequested        = false;
+volatile bool       um_fwDownloadRequested = false;
+um_fw_widgets_t     um_fw_widgets          = {};
 volatile uint32_t   um_sleep_timeout_ms = 60000;
 volatile uint32_t   um_dim_timeout_ms   = 30000;
 volatile uint8_t    um_dim_brightness   = 20;
