@@ -56,6 +56,7 @@ static lv_obj_t   *menu_root          = NULL;
 static lv_obj_t   *menu_tiles[6]      = {};
 static int         menu_focused       = 0;
 static lv_obj_t   *menu_time_lbl      = NULL;  // topbar clock
+static lv_obj_t   *menu_app_lbl       = NULL;  // topbar left label
 static lv_obj_t   *menu_coord_icon    = NULL;  // topbar coordinator indicator
 static lv_timer_t *menu_topbar_timer  = NULL;
 
@@ -151,13 +152,17 @@ static void menu_topbar_update_cb(lv_timer_t *)
     if (menu_time_lbl) {
         struct tm t = {};
 #ifndef SIM_BUILD
-        // Time will be synced into the RTC via an incoming mesh message
         instance.rtc.getDateTime(&t);
 #else
         time_t now = time(NULL);
         t = *localtime(&now);
 #endif
         lv_label_set_text_fmt(menu_time_lbl, "%02d:%02d", t.tm_hour, t.tm_min);
+        // Red = time is from RTC only (no network sync yet)
+        // Green = time has been synced from the network
+        lv_obj_set_style_text_color(menu_time_lbl,
+            um_time_synced ? lv_color_make(0, 200, 80) : lv_color_make(200, 50, 50),
+            LV_PART_MAIN);
     }
 
     // ---- Coordinator indicator ----
@@ -166,6 +171,17 @@ static void menu_topbar_update_cb(lv_timer_t *)
         lv_obj_set_style_text_color(menu_coord_icon,
             connected ? um_col_cyan_bright() : um_col_text_inactive(),
             LV_PART_MAIN);
+    }
+
+    // ---- App / server label ----
+    if (menu_app_lbl) {
+        if (um_msg_server_name[0] != '\0') {
+            lv_label_set_text_fmt(menu_app_lbl, LV_SYMBOL_ENVELOPE "  %s", um_msg_server_name);
+            lv_obj_set_style_text_color(menu_app_lbl, lv_color_make(0, 200, 80), LV_PART_MAIN);
+        } else {
+            lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
+            lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
+        }
     }
 }
 
@@ -197,11 +213,11 @@ void um_menu_create()
     lv_obj_set_flex_flow(topbar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(topbar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // Left: app name
-    lv_obj_t *app_lbl = lv_label_create(topbar);
-    lv_label_set_text(app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
-    lv_obj_set_style_text_color(app_lbl, um_col_cyan(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(app_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    // Left: app name — updated by topbar timer once server ident is received
+    menu_app_lbl = lv_label_create(topbar);
+    lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
+    lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(menu_app_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
 
     // Center: clock — updated by timer
     menu_time_lbl = lv_label_create(topbar);
@@ -393,6 +409,7 @@ void um_menu_destroy()
     if (!menu_root) return;
     if (menu_topbar_timer) { lv_timer_del(menu_topbar_timer); menu_topbar_timer = NULL; }
     menu_time_lbl   = NULL;
+    menu_app_lbl    = NULL;
     menu_coord_icon = NULL;
     lv_group_t *g = lv_group_get_default();
     if (g) lv_group_remove_all_objs(g);

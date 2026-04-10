@@ -56,16 +56,38 @@
 #define UM_LOG_COL             72    // chars per short log row (including null)
 #define UM_FULL_LEN           320    // max chars per full log message
 
+// RIC used for network-wide time sync broadcasts (func=3, msg=YYMMDDHHmmss)
+// Change this if your time-server uses a different RIC address.
+#define UM_RIC_TIME_SYNC         224
+
+// RIC used for messaging-server identification broadcasts (func=3, msg="<callsign>")
+// Trailing digits are stripped and the name is uppercased for display.
+// Max callsign length is 8 chars (e.g. pa999abc).
+#define UM_RIC_MSG_SERVER          8
+#define UM_MSG_SERVER_MAX_LEN      8   // max incoming callsign chars
+#define UM_MSG_SERVER_NAME_LEN    16   // display-name buffer size (incl. null)
+
 // Mesh background task poll rate
 #define UM_MESH_POLL_ACTIVE_MS   100   // when mesh screen is visible
 #define UM_MESH_POLL_BG_MS       500   // when running in background
 
 // -------------------------------------------------------
+// SD card paths
+// The SD card is mounted at /sd by LilyGoLib.
+// All application data lives under UM_SD_ROOT.
+// -------------------------------------------------------
+#define UM_SD_ROOT          "/sd"
+#define UM_SD_DIR_MESSAGES  "/sd/messages"
+#define UM_SD_DIR_OTA       "/sd/ota"
+#define UM_SD_DIR_LOGS      "/sd/logs"
+#define UM_SD_MAX_READ_LEN  65536   // max bytes returned by um_storage_read_file
+
+// -------------------------------------------------------
 // UI timing
 // -------------------------------------------------------
 #define UM_WELCOME_DURATION_MS      5000   // boot splash screen duration (ms)
-#define UM_MENU_TOPBAR_INTERVAL_MS 30000   // topbar clock/coordinator refresh (ms)
-#define UM_MESH_UI_TIMER_MS         500    // LVGL label refresh timer in mesh screen (ms)
+#define UM_MENU_TOPBAR_INTERVAL_MS  1000   // topbar clock/coordinator refresh (ms)
+#define UM_MESH_UI_TIMER_MS          500   // LVGL label refresh timer in mesh screen (ms)
 #define UM_BSP_LONG_PRESS_MS        600    // backspace long-press threshold (ms)
 #define UM_MAIN_LOOP_DELAY_MS         2    // main loop idle delay (ms)
 #define UM_OTA_LOOP_DELAY_MS         20    // main loop delay while OTA is active (ms)

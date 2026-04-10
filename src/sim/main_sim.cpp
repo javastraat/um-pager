@@ -11,6 +11,11 @@
 #include "Arduino.h"
 _SerialStub Serial;
 
+// --- shared runtime variables (defined in um_main.cpp on hardware) --------
+#include "config.h"
+volatile bool       um_time_synced         = false;
+char                um_msg_server_name[UM_MSG_SERVER_NAME_LEN] = {};
+
 // --- quit flag -------------------------------------------
 static volatile bool g_quit = false;
 static void on_signal(int) { g_quit = true; }

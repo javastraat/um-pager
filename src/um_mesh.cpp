@@ -145,6 +145,68 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
              pkt->appId, payload);
     um_log_push(line, full);
 
+    // ---- Time sync broadcast ------------------------------------------
+    // Message format: {"ric":224,"func":3,"msg":"YYMMDDHHmmss"}
+    // Any node may send it; we just check ric and func.
+    // Runs on the mesh task, not the LVGL task — only touch volatile data
+    // and RTC (both safe from ISR/task context).
+    if (pkt->type == MESH_TYPE_DATA) {
+        JsonDocument jdoc;
+        DeserializationError jerr = deserializeJson(jdoc, payload, plen);
+        if (!jerr) {
+            uint32_t ric  = jdoc["ric"]  | 0xFFFFFFFFu;
+            uint8_t  func = jdoc["func"] | 0xFF;
+            if (ric == UM_RIC_TIME_SYNC && func == 3) {
+                const char *msg = jdoc["msg"] | "";
+                // Format: "YYYYMMDDHHMMSS" prefix (14 chars) + YYMMDDHHmmss (12 chars)
+                // Total length 26; date data starts at offset 14.
+                size_t msglen = strlen(msg);
+                const char *data = (msglen == 26) ? msg + 14 : (msglen == 12) ? msg : nullptr;
+                if (data) {
+                    auto d2 = [](const char *s) -> int { return (s[0]-'0')*10 + (s[1]-'0'); };
+                    uint16_t yr  = 2000 + d2(data);
+                    uint8_t  mo  = d2(data+2);
+                    uint8_t  day = d2(data+4);
+                    uint8_t  hr  = d2(data+6);
+                    uint8_t  mn  = d2(data+8);
+                    uint8_t  sec = d2(data+10);
+#ifndef SIM_BUILD
+                    instance.rtc.setDateTime(yr, mo, day, hr, mn, sec);
+#endif
+                    um_time_synced = true;
+                    char tslog[48];
+                    snprintf(tslog, sizeof(tslog),
+                             "[TIME] Synced %04u-%02u-%02u %02u:%02u:%02u",
+                             yr, mo, day, hr, mn, sec);
+                    um_log_push(tslog);
+                }
+            }
+            // ---- Messaging-server identification broadcast ----------------
+            // Message format: {"ric":8,"func":3,"msg":"<callsign>"}
+            // Strip trailing digits, uppercase: "pd2emc1" -> "PD2EMC"
+            if (ric == UM_RIC_MSG_SERVER && func == 3) {
+                const char *msg = jdoc["msg"] | "";
+                size_t mlen = strlen(msg);
+                if (mlen > 0 && mlen <= UM_MSG_SERVER_MAX_LEN) {
+                    // Strip trailing digits
+                    char stripped[UM_MSG_SERVER_NAME_LEN] = {};
+                    strncpy(stripped, msg, UM_MSG_SERVER_NAME_LEN - 1);
+                    size_t tail = strlen(stripped);
+                    while (tail > 0 && isdigit((unsigned char)stripped[tail - 1]))
+                        stripped[--tail] = '\0';
+                    // Uppercase
+                    for (size_t i = 0; i < tail; i++)
+                        stripped[i] = toupper((unsigned char)stripped[i]);
+                    strncpy(um_msg_server_name, stripped, UM_MSG_SERVER_NAME_LEN - 1);
+                    um_msg_server_name[UM_MSG_SERVER_NAME_LEN - 1] = '\0';
+                    char mslog[48];
+                    snprintf(mslog, sizeof(mslog), "[MSG-SRV] %s", um_msg_server_name);
+                    um_log_push(mslog);
+                }
+            }
+        }
+    }
+
     bool directToMe = (memcmp(pkt->destMac, um_myMac, 6) == 0);
     if (pkt->type != MESH_TYPE_DATA || !directToMe) return;
     if (plen < 4 || strncmp(payload, "cmd:", 4) != 0) return;
@@ -473,13 +535,24 @@ static void um_discovery_task(void *param)
     }
     um_log_push("ESP-NOW init OK");
 
-    um_log_push("Scanning channels 1-13...");
-    um_channel = um_mesh.findCoordinatorChannel(NODE_NAME);
-    snprintf(line, sizeof(line), "Channel scan returned: %d", um_channel);
-    um_log_push(line);
+    // Scan with up to 3 attempts — a missed PONG on the first pass is common
+    // because the WiFi/ESP-NOW stack may not be fully settled on attempt 1.
+    um_channel = 0;
+    for (int attempt = 1; attempt <= 3 && um_channel == 0; attempt++) {
+        if (attempt > 1) {
+            snprintf(line, sizeof(line), "Retry scan (attempt %d/3)...", attempt);
+            um_log_push(line);
+            vTaskDelay(pdMS_TO_TICKS(300));
+        } else {
+            um_log_push("Scanning channels 1-13...");
+        }
+        um_channel = um_mesh.findCoordinatorChannel(NODE_NAME);
+        snprintf(line, sizeof(line), "Scan attempt %d returned ch%d", attempt, um_channel);
+        um_log_push(line);
+    }
 
     if (um_channel == 0) {
-        um_log_push("No coordinator found");
+        um_log_push("No coordinator found after 3 attempts");
         um_state = UM_NO_COORD;
         um_task  = NULL;
         vTaskDelete(NULL);

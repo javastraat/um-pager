@@ -6,12 +6,15 @@
 #include "ota_update.h"
 #include "um_nav.h"
 #include "um_shared.h"
+#include "um_storage.h"
 
 // Defaults — settings screen writes these at runtime
 volatile uint32_t   um_sleep_timeout_ms = UM_DEFAULT_SLEEP_TIMEOUT_MS;
 volatile uint32_t   um_dim_timeout_ms   = UM_DEFAULT_DIM_TIMEOUT_MS;
 volatile uint8_t    um_dim_brightness   = UM_DEFAULT_DIM_BRIGHTNESS;
 volatile um_theme_t um_active_theme     = UM_THEME_DARK;
+volatile bool       um_time_synced      = false;  // set true when network time is received
+char                um_msg_server_name[UM_MSG_SERVER_NAME_LEN] = {};  // set when msg-server ident received
 
 // -------------------------------------------------------
 // Arduino entry points
@@ -22,6 +25,9 @@ void setup()
 
     instance.begin(NO_INIT_FATFS);
     beginLvglHelper(instance);
+
+    // Mount SD card and create standard directory tree
+    um_storage_init();
 
     // Workaround: LV_Helper_v9 creates the default group AFTER
     // registering indevs, so encoder/keyboard are assigned to NULL group.
