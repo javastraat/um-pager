@@ -177,7 +177,6 @@ void um_settings_create()
     lv_obj_set_flex_align(settings_root, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(settings_root, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(settings_root, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_add_event_cb(settings_root, settings_key_cb, LV_EVENT_KEY, NULL);
 
     // ---- Header ----
     lv_obj_t *hdr = lv_obj_create(settings_root);
@@ -279,9 +278,17 @@ void um_settings_create()
     lv_obj_center(back_lbl);
 
     // ---- Focus group ----
+    // Note: settings_root is NOT added — adding a plain container as the first
+    // focusable object steals focus and makes the encoder appear unresponsive.
+    // ESC is wired directly to each interactive widget instead.
     lv_group_t *g = lv_group_get_default();
     if (g) {
-        lv_group_add_obj(g, settings_root);
+        lv_obj_add_event_cb(disp_slider,           settings_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(kb_slider,             settings_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(dim_timeout_slider,    settings_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(dim_brightness_slider, settings_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(sleep_timeout_slider,  settings_key_cb, LV_EVENT_KEY, NULL);
+
         lv_group_add_obj(g, disp_slider);
         lv_group_add_obj(g, kb_slider);
         lv_group_add_obj(g, dim_timeout_slider);

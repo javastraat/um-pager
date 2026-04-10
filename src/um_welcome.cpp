@@ -51,7 +51,9 @@ void um_welcome_create()
     lv_image_set_src(img, &um_logo_dsc);
     lv_image_set_scale(img, 40);
     lv_obj_set_size(img, 80, 80);
-    lv_obj_set_style_img_recolor_opa(img, LV_OPA_0, LV_PART_MAIN);
+    // Additive blend: black (0,0,0) pixels add nothing to the background,
+    // making the logo's black fill transparent on any dark background.
+    lv_obj_set_style_blend_mode(img, LV_BLEND_MODE_ADDITIVE, LV_PART_MAIN);
 
     // Title
     lv_obj_t *title = lv_label_create(welcome_root);

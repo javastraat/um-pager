@@ -94,7 +94,6 @@ void um_info_create()
     lv_obj_set_flex_align(info_root, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(info_root, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(info_root, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_add_event_cb(info_root, info_key_cb, LV_EVENT_KEY, NULL);
 
     // ---- Header ----
     lv_obj_t *hdr = lv_obj_create(info_root);
@@ -185,7 +184,7 @@ void um_info_create()
     // ---- Focus group ----
     lv_group_t *g = lv_group_get_default();
     if (g) {
-        lv_group_add_obj(g, info_root);
+        lv_obj_add_event_cb(ota_btn, info_key_cb, LV_EVENT_KEY, NULL);
         lv_group_add_obj(g, ota_btn);
         lv_group_add_obj(g, back_btn);
         lv_group_focus_obj(ota_btn);
