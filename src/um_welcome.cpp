@@ -81,7 +81,7 @@ void um_welcome_create()
     lv_obj_set_style_text_font(node, &lv_font_montserrat_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(node, lv_color_make(100, 100, 115), LV_PART_MAIN);
 
-    welcome_timer = lv_timer_create(welcome_done_cb, 3000, NULL);
+    welcome_timer = lv_timer_create(welcome_done_cb, 5000, NULL);
     lv_timer_set_repeat_count(welcome_timer, 1);
 }
 

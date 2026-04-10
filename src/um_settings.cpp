@@ -71,6 +71,15 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
     lv_obj_set_style_bg_color(slider, lv_color_make(200, 160, 0), LV_PART_INDICATOR);
     lv_obj_set_style_bg_color(slider, lv_color_make(230, 200, 60), LV_PART_KNOB);
     lv_obj_set_style_pad_all(slider, 4, LV_PART_KNOB);
+    // Editing state: brighter knob + outline so the user can see edit mode is active
+    lv_obj_set_style_bg_color(slider, lv_color_make(255, 230, 0),
+                              (lv_style_selector_t)((int)LV_STATE_EDITED | (int)LV_PART_KNOB));
+    lv_obj_set_style_pad_all(slider, 7,
+                              (lv_style_selector_t)((int)LV_STATE_EDITED | (int)LV_PART_KNOB));
+    lv_obj_set_style_outline_color(slider, lv_color_make(255, 220, 0),
+                              (lv_style_selector_t)((int)LV_STATE_EDITED | (int)LV_PART_MAIN));
+    lv_obj_set_style_outline_width(slider, 2,
+                              (lv_style_selector_t)((int)LV_STATE_EDITED | (int)LV_PART_MAIN));
 
     lv_obj_t *val_lbl = lv_label_create(row);
     lv_obj_set_width(val_lbl, 46);
@@ -142,11 +151,59 @@ static void sleep_timeout_cb(lv_event_t *e)
 }
 
 // -------------------------------------------------------
-// Key handler (ESC/Backspace → back)
+// Key handlers
 // -------------------------------------------------------
 static void settings_key_cb(lv_event_t *e)
 {
     uint32_t key = lv_event_get_key(e);
+    if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) um_nav_back();
+}
+
+// LilyGoLib registers the encoder as a keypad indev, so LVGL never
+// automatically toggles the group's edit mode. We manage it manually:
+//   ENTER          → enter / exit edit mode (LV_STATE_EDITED)
+//   LEFT/RIGHT while editing → change slider value, consume the event
+//   ESC/BACKSPACE while editing → exit edit mode (consume event)
+//   ESC/BACKSPACE while not editing → go back
+static const int SLIDER_STEP = 5;
+
+static void slider_key_cb(lv_event_t *e)
+{
+    lv_obj_t *slider  = (lv_obj_t *)lv_event_get_target(e);
+    uint32_t  key     = lv_event_get_key(e);
+    bool      editing = lv_obj_has_state(slider, LV_STATE_EDITED);
+
+    if (key == LV_KEY_ENTER) {
+        if (editing) lv_obj_clear_state(slider, LV_STATE_EDITED);
+        else         lv_obj_add_state(slider,   LV_STATE_EDITED);
+        lv_event_stop_processing(e);
+        return;
+    }
+
+    if (editing) {
+        int delta = 0;
+        if      (key == LV_KEY_RIGHT || key == LV_KEY_UP)   delta = +SLIDER_STEP;
+        else if (key == LV_KEY_LEFT  || key == LV_KEY_DOWN) delta = -SLIDER_STEP;
+        else if (key == LV_KEY_ESC   || key == LV_KEY_BACKSPACE) {
+            lv_obj_clear_state(slider, LV_STATE_EDITED);
+            lv_event_stop_processing(e);
+            return;
+        }
+
+        if (delta != 0) {
+            int32_t minv = lv_slider_get_min_value(slider);
+            int32_t maxv = lv_slider_get_max_value(slider);
+            int32_t val  = lv_slider_get_value(slider) + delta;
+            if (val < minv) val = minv;
+            if (val > maxv) val = maxv;
+            lv_slider_set_value(slider, val, LV_ANIM_OFF);
+            lv_obj_send_event(slider, LV_EVENT_VALUE_CHANGED, NULL);
+            lv_event_stop_processing(e);
+        }
+        return;
+    }
+
+    // Not editing — ESC/Backspace → back
     if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) um_nav_back();
 }
 
@@ -283,11 +340,11 @@ void um_settings_create()
     // ESC is wired directly to each interactive widget instead.
     lv_group_t *g = lv_group_get_default();
     if (g) {
-        lv_obj_add_event_cb(disp_slider,           settings_key_cb, LV_EVENT_KEY, NULL);
-        lv_obj_add_event_cb(kb_slider,             settings_key_cb, LV_EVENT_KEY, NULL);
-        lv_obj_add_event_cb(dim_timeout_slider,    settings_key_cb, LV_EVENT_KEY, NULL);
-        lv_obj_add_event_cb(dim_brightness_slider, settings_key_cb, LV_EVENT_KEY, NULL);
-        lv_obj_add_event_cb(sleep_timeout_slider,  settings_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(disp_slider,           slider_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(kb_slider,             slider_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(dim_timeout_slider,    slider_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(dim_brightness_slider, slider_key_cb, LV_EVENT_KEY, NULL);
+        lv_obj_add_event_cb(sleep_timeout_slider,  slider_key_cb, LV_EVENT_KEY, NULL);
 
         lv_group_add_obj(g, disp_slider);
         lv_group_add_obj(g, kb_slider);
