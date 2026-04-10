@@ -235,13 +235,20 @@ void um_menu_create()
     lv_obj_t *pwr_btn = lv_btn_create(right_box);
     lv_obj_set_size(pwr_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(pwr_btn, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(pwr_btn, lv_color_make(60, 0, 0),
-                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_bg_opa(pwr_btn, LV_OPA_COVER,
-                            (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_width(pwr_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_color(pwr_btn, lv_color_make(40, 40, 50), LV_PART_MAIN);
+    lv_obj_set_style_border_width(pwr_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_radius(pwr_btn, 6, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(pwr_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(pwr_btn, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pwr_btn, 4, LV_PART_MAIN);
+    // Focused state: bright red background + border + glow
+    lv_style_selector_t focused = (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN);
+    lv_obj_set_style_bg_color(pwr_btn, lv_color_make(160, 20, 20), focused);
+    lv_obj_set_style_bg_opa(pwr_btn, LV_OPA_COVER, focused);
+    lv_obj_set_style_border_color(pwr_btn, lv_color_make(255, 80, 80), focused);
+    lv_obj_set_style_border_width(pwr_btn, 2, focused);
+    lv_obj_set_style_shadow_color(pwr_btn, lv_color_make(220, 40, 40), focused);
+    lv_obj_set_style_shadow_width(pwr_btn, 16, focused);
+    lv_obj_set_style_shadow_opa(pwr_btn, LV_OPA_70, focused);
     lv_obj_add_event_cb(pwr_btn, [](lv_event_t *e) {
         instance.sleep((WakeupSource_t)(WAKEUP_SRC_BOOT_BUTTON | WAKEUP_SRC_ROTARY_BUTTON));
     }, LV_EVENT_CLICKED, NULL);
@@ -250,6 +257,15 @@ void um_menu_create()
     lv_obj_set_style_text_color(pwr_lbl, lv_color_make(200, 60, 60), LV_PART_MAIN);
     lv_obj_center(pwr_lbl);
     lv_obj_add_event_cb(pwr_btn, menu_pwr_focused_cb, LV_EVENT_FOCUSED, NULL);
+    // Brighten the icon when focused, restore when focus leaves
+    lv_obj_add_event_cb(pwr_btn, [](lv_event_t *e) {
+        lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
+        lv_obj_set_style_text_color(lbl, lv_color_make(255, 220, 220), LV_PART_MAIN);
+    }, LV_EVENT_FOCUSED, pwr_lbl);
+    lv_obj_add_event_cb(pwr_btn, [](lv_event_t *e) {
+        lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
+        lv_obj_set_style_text_color(lbl, lv_color_make(200, 60, 60), LV_PART_MAIN);
+    }, LV_EVENT_DEFOCUSED, pwr_lbl);
 
     // ---- Thin accent line under topbar ----
     lv_obj_t *accent_line = lv_obj_create(menu_root);

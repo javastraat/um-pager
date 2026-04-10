@@ -56,26 +56,33 @@ void loop()
 
     // ---- Dim / sleep on inactivity ----
     {
-        static bool    s_dimmed           = false;
-        static uint8_t s_saved_brightness = DEVICE_MAX_BRIGHTNESS_LEVEL;
+        static bool    s_dimmed            = false;
+        static uint8_t s_saved_brightness  = DEVICE_MAX_BRIGHTNESS_LEVEL;
+        static uint8_t s_saved_kb_brightness = 128;
 
         uint32_t inactive = lv_display_get_inactive_time(NULL);
 
         // Dim
         if (um_dim_timeout_ms > 0) {
             if (!s_dimmed && inactive >= um_dim_timeout_ms) {
-                s_saved_brightness = instance.getBrightness();
+                s_saved_brightness    = instance.getBrightness();
+                s_saved_kb_brightness = instance.kb.getBrightness();
                 instance.setBrightness(um_dim_brightness);
+                instance.kb.setBrightness(um_dim_brightness);
                 s_dimmed = true;
             } else if (s_dimmed && inactive < um_dim_timeout_ms) {
                 instance.setBrightness(s_saved_brightness);
+                instance.kb.setBrightness(s_saved_kb_brightness);
                 s_dimmed = false;
             }
         }
 
         // Sleep
         if (um_sleep_timeout_ms > 0 && inactive >= um_sleep_timeout_ms) {
-            if (s_dimmed) instance.setBrightness(s_saved_brightness);
+            if (s_dimmed) {
+                instance.setBrightness(s_saved_brightness);
+                instance.kb.setBrightness(s_saved_kb_brightness);
+            }
             s_dimmed = false;
             instance.sleep((WakeupSource_t)(WAKEUP_SRC_BOOT_BUTTON | WAKEUP_SRC_ROTARY_BUTTON));
         }

@@ -28,6 +28,19 @@ extern const lv_image_dsc_t um_logo_dsc = {
     .data      = UM_LOGO_PNG,
 };
 
+static const lv_image_dsc_t um_logo_small_dsc = {
+    .header = {
+        .magic     = LV_IMAGE_HEADER_MAGIC,
+        .cf        = LV_COLOR_FORMAT_RAW,
+        .flags     = 0,
+        .w         = 100,
+        .h         = 100,
+        .stride    = 0,
+    },
+    .data_size = UM_LOGO_SMALL_PNG_LEN,
+    .data      = UM_LOGO_SMALL_PNG,
+};
+
 static void welcome_done_cb(lv_timer_t *t)
 {
     welcome_timer = NULL;
@@ -51,8 +64,7 @@ void um_welcome_create()
     // PWA icon — scale 40/256 ≈ 80px from the 512px source.
     // Size must be set explicitly so the flex layout doesn't see 512×512.
     lv_obj_t *img = lv_image_create(welcome_root);
-    lv_image_set_src(img, &um_logo_dsc);
-    lv_image_set_scale(img, 50);
+    lv_image_set_src(img, &um_logo_small_dsc);
     lv_obj_set_size(img, 100, 100);
     // Additive blend: black (0,0,0) pixels add nothing to the background,
     // making the logo's black fill transparent on any dark background.
