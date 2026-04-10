@@ -18,6 +18,7 @@
 #include <SD.h>
 #include <lvgl.h>
 #include "config.h"
+#include "um_shared.h"
 
 #define FW_DOWNLOAD_URL  "https://github.com/javastraat/um-pager/raw/refs/heads/main/firmware/firmware.bin"
 #define FW_DOWNLOAD_DEST UM_SD_DIR_OTA "/firmware.bin"
@@ -41,13 +42,10 @@ static void fw_ui(lv_obj_t *bar, lv_obj_t *lbl, lv_obj_t *close_btn,
     if (show_close && close_btn) {
         lv_obj_remove_flag(close_btn, LV_OBJ_FLAG_HIDDEN);
     }
-    // Use lv_refr_now instead of lv_timer_handler: we only need to push
-    // the updated widgets to the display.  lv_timer_handler also processes
-    // indevs and internal timers which is unsafe while we are blocking the
-    // main loop — it leaves dangling indev state that causes a
-    // LoadProhibited crash (NULL group_p dereference at offset 0x4c).
-    // The main loop resumes after startFwDownload() returns and handles
-    // all interaction (close button etc.) via its normal lv_timer_handler.
+    // Use lv_refr_now instead of lv_timer_handler here: we only need to push
+    // the updated widgets to the panel while the download routine is blocking.
+    // Normal input/timer processing resumes in the main loop after this helper
+    // returns.
     lv_refr_now(lv_display_get_default());
 }
 
@@ -75,32 +73,52 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
         }
     }
 
-    // Focus the close/restart button now so the encoder reaches it
-    // as soon as the download finishes (or errors) and the button appears.
+    // Add close_btn to the group and pre-focus it so the encoder lands on
+    // it as soon as the download finishes.  Do NOT call lv_group_remove_all_objs:
+    // that sets group_p = NULL on every info-screen object; lv_refr_now then
+    // renders those objects and dereferences the NULL group_p → LoadProhibited
+    // crash at offset 0x4c.  Leaving existing objects in the group is safe
+    // because we only call lv_refr_now (not lv_timer_handler) while blocking,
+    // so the encoder never processes input until startFwDownload() returns.
     {
         lv_group_t *g = lv_group_get_default();
-        if (g) {
-            lv_group_remove_all_objs(g);
-            if (close_btn) lv_group_add_obj(g, close_btn);
+        if (g && close_btn) {
+            lv_group_add_obj(g, close_btn);
+            lv_group_focus_obj(close_btn);
         }
     }
 
     // ---- 1. Stop mesh & WiFi ----
+    Serial.println("[FW-DL] Pausing mesh background task...");
+    um_mesh_suspend(true);
+    delay(UM_MESH_POLL_BG_MS + 50);
+
+    Serial.println("[FW-DL] Stopping mesh & WiFi...");
     fw_ui(bar, status_lbl, close_btn, 0,
           "Stopping mesh...", false, dim_col());
-    esp_now_deinit();
-    WiFi.disconnect(true, true);
-    WiFi.mode(WIFI_OFF);
-    delay(200);
-    esp_wifi_stop();
-    delay(50);
-    esp_wifi_start();
-    delay(50);
+    // Do not call esp_now_deinit() here: on this ESP32-S3 stack it can panic
+    // if the background mesh task was using ESP-NOW moments earlier. Pausing
+    // the mesh worker and shutting the WiFi radio down directly is sufficient.
+    wifi_mode_t wifi_mode = WIFI_MODE_NULL;
+    esp_err_t wifi_mode_err = esp_wifi_get_mode(&wifi_mode);
+    if (wifi_mode_err == ESP_OK && wifi_mode != WIFI_MODE_NULL) {
+        Serial.printf("[FW-DL] Existing WiFi mode: %d, resetting radio...\n", (int)wifi_mode);
+        WiFi.disconnect(true, true);
+        WiFi.mode(WIFI_OFF);
+        delay(200);
+        esp_wifi_stop();
+        delay(50);
+        esp_wifi_start();
+        delay(50);
+    } else {
+        Serial.println("[FW-DL] WiFi not initialized yet, starting fresh STA mode");
+    }
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
 
     // ---- 2. Join WiFi ----
     if (strlen(OTA_SSID) == 0) {
+        Serial.println("[FW-DL] ERROR: OTA_SSID not configured");
         fw_ui(bar, status_lbl, close_btn, 0,
               "Error: OTA_SSID not configured", true, err_col());
         return;
@@ -108,6 +126,7 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
 
     char joining[48];
     snprintf(joining, sizeof(joining), "Joining  %s ...", OTA_SSID);
+    Serial.printf("[FW-DL] Joining WiFi: %s\n", OTA_SSID);
     fw_ui(bar, status_lbl, close_btn, 0, joining, false, dim_col());
 
     WiFi.begin(OTA_SSID, OTA_PASSWORD);
@@ -115,16 +134,21 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
     while (WiFi.status() != WL_CONNECTED &&
            millis() - t < UM_OTA_CONNECT_TIMEOUT_MS) {
         delay(400);
+        Serial.print('.');
         fw_ui(bar, status_lbl, close_btn, 0, joining, false, dim_col());
     }
+    Serial.println();
 
     if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[FW-DL] ERROR: WiFi connect failed");
         fw_ui(bar, status_lbl, close_btn, 0,
               "WiFi connect failed", true, err_col());
         return;
     }
+    Serial.printf("[FW-DL] WiFi connected, IP: %s\n", WiFi.localIP().toString().c_str());
 
     // ---- 3. HTTP GET ----
+    Serial.printf("[FW-DL] Connecting to: %s\n", FW_DOWNLOAD_URL);
     fw_ui(bar, status_lbl, close_btn, 0,
           "Connecting to GitHub...", false, dim_col());
 
@@ -136,31 +160,38 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
     http.setTimeout(15000);
 
     if (!http.begin(client, FW_DOWNLOAD_URL)) {
+        Serial.println("[FW-DL] ERROR: HTTP init failed");
         fw_ui(bar, status_lbl, close_btn, 0,
               "HTTP init failed", true, err_col());
         return;
     }
 
     int code = http.GET();
+    Serial.printf("[FW-DL] HTTP GET response: %d\n", code);
     if (code != HTTP_CODE_OK) {
         char err[48];
         snprintf(err, sizeof(err), "HTTP error %d", code);
+        Serial.printf("[FW-DL] ERROR: %s\n", err);
         fw_ui(bar, status_lbl, close_btn, 0, err, true, err_col());
         http.end();
         return;
     }
 
     int total = http.getSize();   // -1 if chunked transfer (GitHub uses this)
+    Serial.printf("[FW-DL] Content-Length: %d bytes\n", total);
 
     // ---- 4. Open SD destination ----
+    Serial.println("[FW-DL] Opening SD destination: " FW_DOWNLOAD_DEST);
     SD.remove(FW_DOWNLOAD_DEST);
     File f = SD.open(FW_DOWNLOAD_DEST, FILE_WRITE);
     if (!f) {
+        Serial.println("[FW-DL] ERROR: could not open " FW_DOWNLOAD_DEST);
         fw_ui(bar, status_lbl, close_btn, 0,
               "SD: could not open " FW_DOWNLOAD_DEST, true, err_col());
         http.end();
         return;
     }
+    Serial.println("[FW-DL] SD file open OK, streaming...");
 
     // ---- 5. Stream to SD ----
     WiFiClient *stream = http.getStreamPtr();
@@ -174,7 +205,11 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
             int n = stream->readBytes(chunk,
                         min(avail, (int)FW_CHUNK_SIZE));
             f.write(chunk, n);
+            int prev_kb = downloaded / 65536;
             downloaded += n;
+            if (downloaded / 65536 > prev_kb) {
+                Serial.printf("[FW-DL] %d KB received...\n", downloaded / 1024);
+            }
 
             int pct = (total > 0) ? (downloaded * 100 / total) : 50;
             char status[48];
@@ -196,18 +231,22 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
     f.flush();
     f.close();
     http.end();
+    Serial.printf("[FW-DL] Stream done, %d bytes written\n", downloaded);
 
     // ---- 6. Result ----
     if (downloaded < 65536) {   // sanity: real firmware must be > 64 KB
         char err[64];
         snprintf(err, sizeof(err),
                  "Download incomplete (%d KB)", downloaded / 1024);
+        Serial.printf("[FW-DL] ERROR: %s\n", err);
         fw_ui(bar, status_lbl, close_btn, 0, err, true, err_col());
         SD.remove(FW_DOWNLOAD_DEST);
         return;
     }
 
     // Success — show instructions rather than auto-restarting
+    Serial.printf("[FW-DL] SUCCESS: firmware.bin saved (%d KB) to " FW_DOWNLOAD_DEST "\n",
+                  downloaded / 1024);
     char done[128];
     snprintf(done, sizeof(done),
              LV_SYMBOL_OK "  firmware.bin saved (%d KB)\n\n"

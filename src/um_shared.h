@@ -43,6 +43,10 @@ extern um_fw_widgets_t um_fw_widgets;
 // Safe to call from any screen — the mesh keeps running in the background.
 bool um_mesh_has_coordinator();
 
+// Pause/resume background mesh traffic before switching the radio over to
+// infrastructure WiFi for OTA or firmware downloads.
+void um_mesh_suspend(bool suspend);
+
 // Load persisted settings from NVS into the runtime variables above.
 // Call once during setup() before the UI is created.
 void um_settings_load();

@@ -37,6 +37,7 @@ static TaskHandle_t      um_update_task  = NULL;  // persistent Core-0 task for 
 static SemaphoreHandle_t um_mutex        = NULL;
 static bool              um_mesh_started  = false;
 static volatile bool     um_screen_active = false; // true only while mesh screen is open
+static volatile bool     um_mesh_paused   = false; // true while OTA / FW download owns WiFi
 
 static char    um_log[UM_LOG_ROWS][UM_LOG_COL]        = {};
 static char    um_log_full[UM_LOG_ROWS][UM_FULL_LEN] = {};
@@ -653,6 +654,11 @@ static void um_discovery_task(void *param)
 static void um_update_loop(void *param)
 {
     for (;;) {
+        if (um_mesh_paused) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
+
         if (um_state == UM_CONNECTED) {
             um_mesh.update();
             taskYIELD(); // let the WiFi driver on Core 0 breathe immediately after
@@ -738,6 +744,13 @@ bool um_mesh_has_coordinator()
     for (int i = 0; i < 6; i++)
         if (um_coordMac[i] != 0) return true;
     return false;
+}
+
+void um_mesh_suspend(bool suspend)
+{
+    um_mesh_paused = suspend;
+    um_log_push(suspend ? "[MESH] Paused for WiFi task"
+                        : "[MESH] Resumed");
 }
 
 // -------------------------------------------------------

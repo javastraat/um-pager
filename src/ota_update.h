@@ -15,6 +15,7 @@
   #include <espnow.h>
 #endif
 #include "config.h"
+#include "um_shared.h"
 
 static const char* wlStatusToText(wl_status_t st) {
   switch (st) {
@@ -31,8 +32,10 @@ static const char* wlStatusToText(wl_status_t st) {
 }
 
 static void startOtaUpdate() {
-  Serial.println("[OTA] Stopping mesh...");
-  esp_now_deinit();
+  Serial.println("[OTA] Pausing mesh background task...");
+  um_mesh_suspend(true);
+  delay(UM_MESH_POLL_BG_MS + 50);
+  Serial.println("[OTA] Stopping WiFi/mesh radio...");
 
   if (strlen(OTA_SSID) == 0) {
     Serial.println("[OTA] OTA_SSID is empty - rebooting");
@@ -51,15 +54,23 @@ static void startOtaUpdate() {
   delay(200);
   yield();
 #else
-  // ESP32-C6 can stay in a stale STA state after ESP-NOW deinit.
-  // Fully stop/start Wi-Fi before re-associating for OTA.
-  WiFi.disconnect(true, true);
-  WiFi.mode(WIFI_OFF);
-  delay(200);
-  esp_wifi_stop();
-  delay(50);
-  esp_wifi_start();
-  delay(50);
+  // Fully stop/start Wi-Fi before re-associating for OTA, but only if the
+  // WiFi driver is already initialized. On a cold path this avoids the
+  // harmless ESP_ERR_WIFI_NOT_INIT warning in the serial log.
+  wifi_mode_t wifi_mode = WIFI_MODE_NULL;
+  esp_err_t wifi_mode_err = esp_wifi_get_mode(&wifi_mode);
+  if (wifi_mode_err == ESP_OK && wifi_mode != WIFI_MODE_NULL) {
+    Serial.printf("[OTA] Existing WiFi mode: %d, resetting radio\n", (int)wifi_mode);
+    WiFi.disconnect(true, true);
+    WiFi.mode(WIFI_OFF);
+    delay(200);
+    esp_wifi_stop();
+    delay(50);
+    esp_wifi_start();
+    delay(50);
+  } else {
+    Serial.println("[OTA] WiFi not initialized yet, starting fresh STA mode");
+  }
 #endif
 
   WiFi.mode(WIFI_STA);
