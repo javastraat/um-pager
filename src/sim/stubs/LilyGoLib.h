@@ -20,12 +20,20 @@ typedef uint32_t WakeupSource_t;
 #define WAKEUP_SRC_BOOT_BUTTON   ((WakeupSource_t)0x01)
 #define WAKEUP_SRC_ROTARY_BUTTON ((WakeupSource_t)0x02)
 
+struct LilyGoKeyboard {
+    void    setBrightness(uint8_t) {}
+    uint8_t getBrightness()        { return 128; }
+};
+
 struct LilyGoDevice {
-    void begin(int) {}
-    void loop()     {}
-    void setBrightness(int) {}
+    LilyGoKeyboard kb;
+
+    void    begin(int) {}
+    void    loop()     {}
+    void    setBrightness(uint8_t) {}
+    uint8_t getBrightness()        { return 255; }
     // sleep() quits the simulator instead of deep-sleeping the MCU
-    void sleep(WakeupSource_t) { ::exit(0); }
+    void    sleep(WakeupSource_t)  { ::exit(0); }
 };
 
 inline LilyGoDevice instance;
