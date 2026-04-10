@@ -6,6 +6,9 @@
 #include "um_nav.h"
 #include "um_shared.h"
 
+// 60 s default; settings screen writes this at runtime
+volatile uint32_t um_sleep_timeout_ms = 60000;
+
 // -------------------------------------------------------
 // Arduino entry points
 // -------------------------------------------------------
@@ -47,5 +50,31 @@ void loop()
 
     instance.loop();
     lv_timer_handler();
+
+    // ---- Dim / sleep on inactivity ----
+    if (um_sleep_timeout_ms > 0) {
+        static bool    s_dimmed           = false;
+        static uint8_t s_saved_brightness = DEVICE_MAX_BRIGHTNESS_LEVEL;
+
+        uint32_t inactive = lv_display_get_inactive_time(NULL);
+        uint32_t dim_ms   = um_sleep_timeout_ms / 2;
+
+        if (!s_dimmed && inactive >= dim_ms) {
+            s_saved_brightness = instance.getBrightness();
+            instance.setBrightness(8);
+            s_dimmed = true;
+        } else if (s_dimmed && inactive < dim_ms) {
+            // user interacted — restore brightness
+            instance.setBrightness(s_saved_brightness);
+            s_dimmed = false;
+        }
+
+        if (inactive >= um_sleep_timeout_ms) {
+            instance.setBrightness(s_saved_brightness);
+            s_dimmed = false;
+            instance.sleep((WakeupSource_t)(WAKEUP_SRC_BOOT_BUTTON | WAKEUP_SRC_ROTARY_BUTTON));
+        }
+    }
+
     delay(2);
 }

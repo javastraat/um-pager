@@ -74,7 +74,7 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
 
     // value label — stored in user_data so the callback can update it
     lv_obj_t *val_lbl = lv_label_create(row);
-    lv_obj_set_width(val_lbl, 38);
+    lv_obj_set_width(val_lbl, 46);
     lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(val_lbl, lv_color_make(140, 140, 155), LV_PART_MAIN);
     lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
@@ -142,6 +142,17 @@ static void kb_brightness_cb(lv_event_t *e)
     instance.kb.setBrightness((uint8_t)val);
     lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
     if (lbl) lv_label_set_text_fmt(lbl, "%d%%", val * 100 / 255);
+}
+
+static void sleep_timeout_cb(lv_event_t *e)
+{
+    lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
+    int val = lv_slider_get_value(slider); // seconds
+    um_sleep_timeout_ms = (uint32_t)(val * 1000);
+    lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
+    if (!lbl) return;
+    if (val == 0) lv_label_set_text(lbl, "Never");
+    else          lv_label_set_text_fmt(lbl, "%ds", val);
 }
 
 // -------------------------------------------------------
@@ -214,6 +225,20 @@ void um_settings_create()
         kb_brightness_cb
     );
 
+    int init_timeout_s = (int)(um_sleep_timeout_ms / 1000);
+    lv_obj_t *timeout_slider = make_slider_row(
+        settings_root,
+        LV_SYMBOL_POWER, "Sleep timeout",
+        0, 180, init_timeout_s,
+        sleep_timeout_cb
+    );
+    // Override the "XX%" label that make_slider_row set
+    lv_obj_t *timeout_lbl = (lv_obj_t *)lv_obj_get_user_data(timeout_slider);
+    if (timeout_lbl) {
+        if (init_timeout_s == 0) lv_label_set_text(timeout_lbl, "Never");
+        else                     lv_label_set_text_fmt(timeout_lbl, "%ds", init_timeout_s);
+    }
+
     make_divider(settings_root);
 
     // ---- Section: System ----
@@ -284,6 +309,7 @@ void um_settings_create()
         lv_group_add_obj(g, settings_root);   // catches ESC at root level
         lv_group_add_obj(g, disp_slider);
         lv_group_add_obj(g, kb_slider);
+        lv_group_add_obj(g, timeout_slider);
         lv_group_add_obj(g, ota_btn);
         lv_group_add_obj(g, back_btn);
         lv_group_focus_obj(disp_slider);

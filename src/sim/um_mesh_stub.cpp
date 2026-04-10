@@ -9,7 +9,8 @@
 #include "um_nav.h"
 #include "um_shared.h"
 
-volatile bool um_otaRequested = false;
+volatile bool     um_otaRequested    = false;
+volatile uint32_t um_sleep_timeout_ms = 60000;
 
 static lv_obj_t *mesh_root = NULL;
 
