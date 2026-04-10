@@ -7,6 +7,7 @@ typedef enum {
     UM_SCREEN_MENU = 0,
     UM_SCREEN_MESH,
     UM_SCREEN_MESSAGES,
+    UM_SCREEN_NFC,
     UM_SCREEN_SETTINGS,
     UM_SCREEN_HELP,
     UM_SCREEN_LORA,
@@ -31,6 +32,8 @@ void um_lora_create();
 void um_lora_destroy();
 void um_info_create();
 void um_info_destroy();
+void um_nfc_create();
+void um_nfc_destroy();
 void um_sd_create();
 void um_sd_destroy();
 
@@ -45,6 +48,7 @@ static void um_nav_destroy_current()
         case UM_SCREEN_MENU:     um_menu_destroy();     break;
         case UM_SCREEN_MESH:     um_mesh_destroy();     break;
         case UM_SCREEN_MESSAGES: um_messages_destroy(); break;
+        case UM_SCREEN_NFC:      um_nfc_destroy();      break;
         case UM_SCREEN_SETTINGS: um_settings_destroy(); break;
         case UM_SCREEN_HELP:     um_help_destroy();     break;
         case UM_SCREEN_LORA:     um_lora_destroy();     break;
@@ -61,6 +65,7 @@ static void um_nav_go(UMScreen screen)
         case UM_SCREEN_MENU:     um_menu_create();     break;
         case UM_SCREEN_MESH:     um_mesh_create();     break;
         case UM_SCREEN_MESSAGES: um_messages_create(); break;
+        case UM_SCREEN_NFC:      um_nfc_create();      break;
         case UM_SCREEN_SETTINGS: um_settings_create(); break;
         case UM_SCREEN_HELP:     um_help_create();     break;
         case UM_SCREEN_LORA:     um_lora_create();     break;

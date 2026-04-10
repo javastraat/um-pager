@@ -35,6 +35,10 @@ static const MenuTile TILES[] = {
         lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES
     },
     {
+        LV_SYMBOL_LOOP,"NFC","Card reader",
+        lv_color_make(0, 200, 160),   UM_SCREEN_NFC
+    },
+    {
         LV_SYMBOL_SD_CARD,"Storage","SD card files",
         lv_color_make(80, 160, 100),  UM_SCREEN_SD
     },
@@ -57,7 +61,7 @@ static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
 // State
 // -------------------------------------------------------
 static lv_obj_t   *menu_root          = NULL;
-static lv_obj_t   *menu_tiles[7]      = {};
+static lv_obj_t   *menu_tiles[8]      = {};
 static int         menu_focused       = 0;
 static lv_obj_t   *menu_time_lbl      = NULL;  // topbar clock
 static lv_obj_t   *menu_app_lbl       = NULL;  // topbar left label
