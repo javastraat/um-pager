@@ -22,27 +22,27 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        NULL,               "ESP-Now",      "Mesh Network",
+        LV_SYMBOL_WIFI,"ESP-Now","Mesh Network",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
-        LV_SYMBOL_WIFI,     "LoRa",      "Long-range radio",
+        LV_SYMBOL_GPS,"LoRa","Long-range radio",
         lv_color_make(255, 120, 0),   UM_SCREEN_LORA
     },
     {
-        LV_SYMBOL_ENVELOPE, "Messages",  "Inbox & compose",
+        LV_SYMBOL_ENVELOPE,"Messages","Inbox & compose",
         lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES
     },
     {
-        LV_SYMBOL_SETTINGS, "Settings",  "Device config",
+        LV_SYMBOL_SETTINGS,"Settings","Device config",
         lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS
     },
     {
-        LV_SYMBOL_WARNING,  "Help",      "About & guide",
+        LV_SYMBOL_WARNING,"Help","About & guide",
         lv_color_make(220, 50, 50),   UM_SCREEN_HELP
     },
     {
-        LV_SYMBOL_LIST,     "Info",      "System & OTA",
+        LV_SYMBOL_LIST,"Info","System & OTA",
         lv_color_make(120, 80, 220),  UM_SCREEN_INFO
     },
 };

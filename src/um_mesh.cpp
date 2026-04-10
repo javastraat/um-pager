@@ -39,8 +39,10 @@ static uint8_t           um_channel     = 0;
 static unsigned long     um_lastHB      = 0;
 static unsigned long     um_lastTemp    = 0;
 static TaskHandle_t      um_task        = NULL;
-static SemaphoreHandle_t um_mutex       = NULL;
-static bool              um_mesh_started = false;
+static TaskHandle_t      um_update_task  = NULL;  // persistent Core-0 task for mesh work
+static SemaphoreHandle_t um_mutex        = NULL;
+static bool              um_mesh_started  = false;
+static volatile bool     um_screen_active = false; // true only while mesh screen is open
 
 static char    um_log[UM_LOG_ROWS][72]               = {};
 static char    um_log_full[UM_LOG_ROWS][UM_FULL_LEN] = {};
@@ -529,41 +531,57 @@ static void um_discovery_task(void *param)
 }
 
 // -------------------------------------------------------
-// 500ms LVGL timer
+// Background mesh task — Core 0, runs forever once started.
+// Calls update() and handles periodic sends so the LVGL
+// timer (Core 1) never blocks on mesh work.
+// -------------------------------------------------------
+static void um_update_loop(void *param)
+{
+    for (;;) {
+        if (um_state == UM_CONNECTED) {
+            um_mesh.update();
+            taskYIELD(); // let the WiFi driver on Core 0 breathe immediately after
+
+            unsigned long now = millis();
+
+            if (now - um_lastHB >= UM_HB_INTERVAL) {
+                um_lastHB = now;
+                uint8_t hb = 0x01;
+                um_mesh.send(um_coordMac, MESH_TYPE_DATA, 0x05, &hb, 1, 4);
+                um_mesh.send(um_coordMac, MESH_TYPE_DATA, 0x06,
+                             (const uint8_t *)NODE_NAME, strlen(NODE_NAME), 4);
+                um_log_push("[HB] Heartbeat sent");
+            }
+
+            if (now - um_lastTemp >= UM_TEMP_INTERVAL) {
+                um_lastTemp = now;
+                float tempC = temperatureRead();
+                JsonDocument doc;
+                doc["name"] = NODE_NAME;
+                doc["temp"] = serialized(String(tempC, 1));
+                String payload;
+                serializeJson(doc, payload);
+                if (um_mesh.sendToCoordinator(0x01, payload)) {
+                    char line[48];
+                    snprintf(line, sizeof(line), "[TX] Temp: %.1f C", tempC);
+                    um_log_push(line);
+                } else {
+                    um_log_push("[TX] Temp send failed");
+                }
+            }
+        }
+        // When the mesh screen is visible: poll at 100 ms (was 50 ms).
+        // When in the background (menu/other screens): back off to 500 ms so
+        // Core-0 memory-bus pressure doesn't stutter LVGL on Core 1.
+        vTaskDelay(pdMS_TO_TICKS(um_screen_active ? 100 : 500));
+    }
+}
+
+// -------------------------------------------------------
+// 500ms LVGL timer — UI labels only, no mesh work
 // -------------------------------------------------------
 static void um_timer_cb(lv_timer_t *t)
 {
-    if (um_state == UM_CONNECTED) {
-        um_mesh.update();
-
-        unsigned long now = millis();
-
-        if (now - um_lastHB >= UM_HB_INTERVAL) {
-            um_lastHB = now;
-            uint8_t hb = 0x01;
-            um_mesh.send(um_coordMac, MESH_TYPE_DATA, 0x05, &hb, 1, 4);
-            um_mesh.send(um_coordMac, MESH_TYPE_DATA, 0x06,
-                         (const uint8_t *)NODE_NAME, strlen(NODE_NAME), 4);
-            um_log_push("[HB] Heartbeat sent");
-        }
-
-        if (now - um_lastTemp >= UM_TEMP_INTERVAL) {
-            um_lastTemp = now;
-            float tempC = temperatureRead();
-            JsonDocument doc;
-            doc["name"] = NODE_NAME;
-            doc["temp"] = serialized(String(tempC, 1));
-            String payload;
-            serializeJson(doc, payload);
-            if (um_mesh.sendToCoordinator(0x01, payload)) {
-                char line[48];
-                snprintf(line, sizeof(line), "[TX] Temp: %.1f C", tempC);
-                um_log_push(line);
-            } else {
-                um_log_push("[TX] Temp send failed");
-            }
-        }
-    }
 
     if (um_status_lbl) {
         if (um_state == UM_DISCOVERING) {
@@ -711,11 +729,16 @@ void um_mesh_create()
     lv_obj_set_style_width(um_log_cont, 3, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(um_log_cont, 2, LV_PART_SCROLLBAR);
 
+    um_screen_active = true;
+
     // Start mesh only once
     if (!um_mesh_started) {
         um_mesh_started = true;
         if (!um_mutex) um_mutex = xSemaphoreCreateMutex();
         xTaskCreate(um_discovery_task, "um_disc", 4096, NULL, 5, &um_task);
+        // Background update loop on Core 0 — keeps mesh work off the LVGL thread
+        xTaskCreatePinnedToCore(um_update_loop, "um_update", 4096, NULL, 2,
+                                &um_update_task, 0);
     }
 
     um_timer = lv_timer_create(um_timer_cb, 500, NULL);
@@ -727,6 +750,7 @@ void um_mesh_create()
 
 void um_mesh_destroy()
 {
+    um_screen_active = false; // tell update loop to back off — LVGL needs Core 0 quiet
     if (um_timer)     { lv_timer_del(um_timer);     um_timer     = NULL; }
     if (um_bsp_timer) { lv_timer_del(um_bsp_timer); um_bsp_timer = NULL; }
     if (um_popup_cont)  { lv_obj_del(um_popup_cont);  um_popup_cont  = NULL; }
