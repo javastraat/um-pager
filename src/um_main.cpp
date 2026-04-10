@@ -80,6 +80,7 @@ void loop()
         return;
     }
 
+    um_nfc_loop();     // drives RFAL state machine when NFC screen is active
     instance.loop();
     lv_timer_handler();
 

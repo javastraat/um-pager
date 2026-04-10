@@ -34,6 +34,7 @@ void um_info_create();
 void um_info_destroy();
 void um_nfc_create();
 void um_nfc_destroy();
+void um_nfc_loop();    // call from Arduino loop() while NFC screen is active
 void um_sd_create();
 void um_sd_destroy();
 
