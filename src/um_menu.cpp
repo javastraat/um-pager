@@ -4,6 +4,9 @@
 #include <lvgl.h>
 #include "um_nav.h"
 
+// Logo image descriptor defined in um_welcome.cpp
+extern const lv_image_dsc_t um_logo_dsc;
+
 // -------------------------------------------------------
 // Menu tile definitions
 // -------------------------------------------------------
@@ -17,11 +20,11 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,     "ESP-Now",      "Mesh Network",
+        NULL,               "ESP-Now",      "Mesh Network",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
-        LV_SYMBOL_GPS,      "LoRa",      "Long-range radio",
+        LV_SYMBOL_WIFI,     "LoRa",      "Long-range radio",
         lv_color_make(255, 120, 0),   UM_SCREEN_LORA
     },
     {
@@ -227,11 +230,21 @@ void um_menu_create()
         lv_obj_set_style_pad_row(tile, 6, LV_PART_MAIN);
         lv_obj_add_flag(tile, LV_OBJ_FLAG_CLICKABLE);
 
-        // Big symbol / icon
-        lv_obj_t *ico = lv_label_create(tile);
-        lv_label_set_text(ico, TILES[i].symbol);
-        lv_obj_set_style_text_font(ico, &lv_font_montserrat_40, LV_PART_MAIN);
-        lv_obj_set_style_text_color(ico, TILES[i].accent, LV_PART_MAIN);
+        // Big symbol / icon — tile 0 uses the logo PNG, others use a symbol glyph
+        if (TILES[i].symbol == NULL) {
+            lv_obj_t *ico = lv_image_create(tile);
+            lv_image_set_src(ico, &um_logo_dsc);
+            // Scale 512px source down to ~40px (20/256 * 512 = 40)
+            lv_image_set_scale(ico, 20);
+            lv_obj_set_size(ico, 40, 40);
+            // Additive blend: black pixels become transparent on the dark background
+            lv_obj_set_style_blend_mode(ico, LV_BLEND_MODE_ADDITIVE, LV_PART_MAIN);
+        } else {
+            lv_obj_t *ico = lv_label_create(tile);
+            lv_label_set_text(ico, TILES[i].symbol);
+            lv_obj_set_style_text_font(ico, &lv_font_montserrat_40, LV_PART_MAIN);
+            lv_obj_set_style_text_color(ico, TILES[i].accent, LV_PART_MAIN);
+        }
 
         // Title
         lv_obj_t *title_lbl = lv_label_create(tile);

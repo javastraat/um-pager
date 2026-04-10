@@ -11,8 +11,11 @@
 static lv_obj_t  *welcome_root  = NULL;
 static lv_timer_t *welcome_timer = NULL;
 
-// LVGL image descriptor pointing at the in-flash PNG bytes
-static const lv_image_dsc_t um_logo_dsc = {
+// LVGL image descriptor pointing at the in-flash PNG bytes — extern so
+// um_menu.cpp can reference it without duplicating the PNG data in flash.
+// (In C++, const namespace-scope vars are internally linked by default;
+//  extern overrides that to give external linkage.)
+extern const lv_image_dsc_t um_logo_dsc = {
     .header = {
         .magic     = LV_IMAGE_HEADER_MAGIC,
         .cf        = LV_COLOR_FORMAT_RAW,
