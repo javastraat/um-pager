@@ -16,7 +16,6 @@ enum NfcScreenState { NFC_IDLE, NFC_SCANNING, NFC_CARD_FOUND, NFC_WAIT_RESCAN };
 static NfcScreenState  nfc_screen_state = NFC_IDLE;
 static unsigned long   nfc_found_at_ms  = 0;
 
-// String buffers filled inside the RFAL activation callback
 static char nfc_uid_str[68]     = "--";
 static char nfc_type_str[48]    = "--";
 static char nfc_product_str[48] = "--";
@@ -42,17 +41,21 @@ static const char* nfc_mifare_name(uint8_t sak)
     }
 }
 
-// Callback invoked by rfalNfcWorker() when a card reaches ACTIVATED state.
-// NOTE: called synchronously from inside rfalNfcWorker(), keep it short.
+// Called synchronously from rfalNfcWorker() when a card is activated
 static void nfc_on_state(rfalNfcState st)
 {
+    Serial.printf("[NFC] state callback: st=%d\n", (int)st);
+
     if (st != RFAL_NFC_STATE_ACTIVATED) return;
 
     rfalNfcDevice *dev = nullptr;
     NFCReader.rfalNfcGetActiveDevice(&dev);
-    if (!dev) return;
+    if (!dev) {
+        Serial.println("[NFC] ERROR: getActiveDevice returned null");
+        return;
+    }
 
-    // Generic UID (valid for all card types)
+    // Generic UID
     nfc_uid_str[0] = '\0';
     for (int i = 0; i < dev->nfcidLen; i++) {
         char hex[5];
@@ -60,14 +63,14 @@ static void nfc_on_state(rfalNfcState st)
         strncat(nfc_uid_str, hex, sizeof(nfc_uid_str) - strlen(nfc_uid_str) - 1);
     }
 
+    Serial.printf("[NFC] Card found! type=%d  uid=%s\n", (int)dev->type, nfc_uid_str);
+
     nfc_product_str[0] = '\0';
     nfc_detail1_str[0] = '\0';
     nfc_detail2_str[0] = '\0';
     nfc_detail3_str[0] = '\0';
 
-    // When pager acts as poller, detected cards appear as LISTEN types
     switch (dev->type) {
-
         case RFAL_NFC_LISTEN_TYPE_NFCA: {
             strncpy(nfc_type_str, "NFC-A  (ISO 14443-A)", sizeof(nfc_type_str) - 1);
             uint8_t atqa0 = dev->dev.nfca.sensRes.anticollisionInfo;
@@ -78,6 +81,8 @@ static void nfc_on_state(rfalNfcState st)
             snprintf(nfc_detail2_str, sizeof(nfc_detail2_str),
                      "SAK: 0x%02X", sak);
             strncpy(nfc_product_str, nfc_mifare_name(sak), sizeof(nfc_product_str) - 1);
+            Serial.printf("[NFC] NFC-A  ATQA=%02X%02X  SAK=%02X  product=%s\n",
+                          atqa0, atqa1, sak, nfc_product_str);
             break;
         }
         case RFAL_NFC_LISTEN_TYPE_NFCB: {
@@ -93,6 +98,8 @@ static void nfc_on_state(rfalNfcState st)
                      dev->dev.nfcb.sensbRes.protInfo.BRC,
                      dev->dev.nfcb.sensbRes.protInfo.FsciProType,
                      dev->dev.nfcb.sensbRes.protInfo.FwiAdcFo);
+            Serial.printf("[NFC] NFC-B  PUPI=%02X:%02X:%02X:%02X\n",
+                          pupi[0], pupi[1], pupi[2], pupi[3]);
             break;
         }
         case RFAL_NFC_LISTEN_TYPE_NFCF: {
@@ -110,12 +117,12 @@ static void nfc_on_state(rfalNfcState st)
                      "PAD1: %02X %02X",
                      dev->dev.nfcf.sensfRes.PAD1[0],
                      dev->dev.nfcf.sensfRes.PAD1[1]);
+            Serial.printf("[NFC] NFC-F  IDm=%s\n", nfc_detail1_str);
             break;
         }
         case RFAL_NFC_LISTEN_TYPE_NFCV: {
             strncpy(nfc_type_str, "NFC-V  (ISO 15693)", sizeof(nfc_type_str) - 1);
             uint8_t *uid = dev->dev.nfcv.InvRes.UID;
-            // ISO 15693 UID stored LSB-first — display MSB-first
             snprintf(nfc_detail1_str, sizeof(nfc_detail1_str),
                      "UID: %02X%02X%02X%02X%02X%02X%02X%02X",
                      uid[7],uid[6],uid[5],uid[4],
@@ -124,18 +131,21 @@ static void nfc_on_state(rfalNfcState st)
                      "DSFID: 0x%02X", dev->dev.nfcv.InvRes.DSFID);
             snprintf(nfc_detail3_str, sizeof(nfc_detail3_str),
                      "Flags: 0x%02X", dev->dev.nfcv.InvRes.RES_FLAG);
+            Serial.printf("[NFC] NFC-V  %s  DSFID=%02X\n",
+                          nfc_detail1_str, dev->dev.nfcv.InvRes.DSFID);
             break;
         }
         case RFAL_NFC_LISTEN_TYPE_ST25TB:
             strncpy(nfc_type_str, "ST25TB  (ST proprietary)", sizeof(nfc_type_str) - 1);
+            Serial.println("[NFC] ST25TB card");
             break;
         default:
             snprintf(nfc_type_str, sizeof(nfc_type_str),
                      "Unknown (type=%d)", (int)dev->type);
+            Serial.printf("[NFC] Unknown type=%d\n", (int)dev->type);
             break;
     }
 
-    // Deactivate and put NFC-A cards to sleep so they aren't re-selected immediately
     NFCReader.rfalNfcDeactivate(false);
     if (dev->type == RFAL_NFC_LISTEN_TYPE_NFCA) {
         NFCReader.rfalNfcaPollerSleep();
@@ -156,7 +166,9 @@ static ReturnCode nfc_start_discovery()
     p.notifyCb      = nfc_on_state;
     p.wakeupEnabled = false;
     p.GBLen         = RFAL_NFCDEP_GB_MAX_LEN;
-    return NFCReader.rfalNfcDiscover(&p);
+    ReturnCode err  = NFCReader.rfalNfcDiscover(&p);
+    Serial.printf("[NFC] rfalNfcDiscover returned %d\n", (int)err);
+    return err;
 }
 #endif // !SIM_BUILD
 
@@ -171,12 +183,12 @@ static lv_obj_t   *nfc_product_val = NULL;
 static lv_obj_t   *nfc_detail1_val = NULL;
 static lv_obj_t   *nfc_detail2_val = NULL;
 static lv_obj_t   *nfc_detail3_val = NULL;
-static lv_timer_t *nfc_ui_timer    = NULL;  // UI-only refresh, not the RFAL worker
+static lv_timer_t *nfc_ui_timer    = NULL;
 static bool        nfc_hw_ok       = false;
 
 // -------------------------------------------------------
-// LVGL UI timer — only updates labels, never calls rfalNfcWorker()
-// rfalNfcWorker() is driven from um_nfc_loop() in Arduino loop().
+// LVGL UI timer — 100 ms, only updates labels
+// rfalNfcWorker() is driven from um_nfc_loop() in main loop
 // -------------------------------------------------------
 #ifndef SIM_BUILD
 static void nfc_ui_cb(lv_timer_t *)
@@ -185,8 +197,7 @@ static void nfc_ui_cb(lv_timer_t *)
 
         case NFC_CARD_FOUND:
             if (nfc_status_lbl) {
-                lv_label_set_text(nfc_status_lbl,
-                    LV_SYMBOL_OK "  Card detected");
+                lv_label_set_text(nfc_status_lbl, LV_SYMBOL_OK "  Card detected");
                 lv_obj_set_style_text_color(nfc_status_lbl,
                     lv_color_make(0, 220, 100), LV_PART_MAIN);
             }
@@ -200,13 +211,11 @@ static void nfc_ui_cb(lv_timer_t *)
                                      nfc_detail2_str[0] ? nfc_detail2_str : "--");
             if (nfc_detail3_val) lv_label_set_text(nfc_detail3_val,
                                      nfc_detail3_str[0] ? nfc_detail3_str : "--");
-
             nfc_found_at_ms  = millis();
             nfc_screen_state = NFC_WAIT_RESCAN;
             break;
 
         case NFC_WAIT_RESCAN:
-            // After 4 s restart discovery for the next card
             if (millis() - nfc_found_at_ms > 4000UL) {
                 if (nfc_status_lbl) {
                     lv_label_set_text(nfc_status_lbl,
@@ -214,6 +223,7 @@ static void nfc_ui_cb(lv_timer_t *)
                     lv_obj_set_style_text_color(nfc_status_lbl,
                         lv_color_make(0, 180, 200), LV_PART_MAIN);
                 }
+                Serial.println("[NFC] restarting discovery");
                 nfc_screen_state = NFC_SCANNING;
                 nfc_start_discovery();
             }
@@ -226,9 +236,8 @@ static void nfc_ui_cb(lv_timer_t *)
 #endif
 
 // -------------------------------------------------------
-// um_nfc_loop() — MUST be called from Arduino loop()
-// Drives the RFAL state machine; returns immediately when
-// the NFC screen is not active.
+// um_nfc_loop() — called from Arduino loop() every iteration
+// Only active while the NFC screen is open (nfc_hw_ok gate)
 // -------------------------------------------------------
 void um_nfc_loop()
 {
@@ -250,7 +259,6 @@ static void nfc_back_cb(lv_event_t *e)
         um_nav_back();
 }
 
-// Returns the value label; caller saves it to update later.
 static lv_obj_t* nfc_info_row(lv_obj_t *parent,
                                const char *symbol,
                                const char *key,
@@ -288,7 +296,6 @@ static lv_obj_t* nfc_info_row(lv_obj_t *parent,
     lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
     lv_obj_set_width(val_lbl, lv_pct(55));
     lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_WRAP);
-
     return val_lbl;
 }
 
@@ -332,7 +339,7 @@ void um_nfc_create()
     lv_obj_set_scroll_dir(nfc_root, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(nfc_root, LV_SCROLLBAR_MODE_OFF);
 
-    // Header: icon + title on one row (same pattern as um_info.cpp)
+    // Header row: icon + title
     lv_obj_t *hdr = lv_obj_create(nfc_root);
     lv_obj_set_width(hdr, lv_pct(100));
     lv_obj_set_height(hdr, LV_SIZE_CONTENT);
@@ -355,7 +362,6 @@ void um_nfc_create()
     lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
 
-    // Status line
     nfc_status_lbl = lv_label_create(nfc_root);
     lv_obj_set_style_text_font(nfc_status_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(nfc_status_lbl, um_col_text_sub(), LV_PART_MAIN);
@@ -363,7 +369,6 @@ void um_nfc_create()
 
     nfc_divider(nfc_root);
 
-    // Card identity section
     nfc_section(nfc_root, LV_SYMBOL_EYE_OPEN "  CARD IDENTITY");
     nfc_uid_val     = nfc_info_row(nfc_root, LV_SYMBOL_CHARGE, "UID",     "--");
     nfc_type_val    = nfc_info_row(nfc_root, LV_SYMBOL_WIFI,   "Type",    "--");
@@ -371,7 +376,6 @@ void um_nfc_create()
 
     nfc_divider(nfc_root);
 
-    // Protocol details section
     nfc_section(nfc_root, LV_SYMBOL_SETTINGS "  PROTOCOL DETAILS");
     nfc_detail1_val = nfc_info_row(nfc_root, LV_SYMBOL_RIGHT, "Detail 1", "--");
     nfc_detail2_val = nfc_info_row(nfc_root, LV_SYMBOL_RIGHT, "Detail 2", "--");
@@ -379,7 +383,6 @@ void um_nfc_create()
 
     nfc_divider(nfc_root);
 
-    // Back button
     lv_obj_t *back_btn = lv_btn_create(nfc_root);
     lv_obj_set_width(back_btn, lv_pct(100));
     lv_obj_set_height(back_btn, LV_SIZE_CONTENT);
@@ -404,29 +407,40 @@ void um_nfc_create()
         lv_group_focus_obj(back_btn);
     }
 
-    // NFC hardware init + start discovery
+    // ---- NFC power + init + discovery ----
 #ifndef SIM_BUILD
     nfc_screen_state = NFC_SCANNING;
     nfc_found_at_ms  = 0;
 
-    nfc_hw_ok = (NFCReader.rfalNfcInitialize() == ST_ERR_NONE);
+    Serial.println("[NFC] powering on NFC chip...");
+    instance.powerControl(POWER_NFC, true);
+    delay(10);   // allow ST25R3916 to stabilise after power-on
+
+    Serial.println("[NFC] calling rfalNfcInitialize...");
+    ReturnCode initErr = NFCReader.rfalNfcInitialize();
+    Serial.printf("[NFC] rfalNfcInitialize returned %d (%s)\n",
+                  (int)initErr, initErr == ST_ERR_NONE ? "OK" : "FAIL");
+
+    nfc_hw_ok = (initErr == ST_ERR_NONE);
+
     if (nfc_hw_ok) {
-        ReturnCode err = nfc_start_discovery();
-        if (err != ST_ERR_NONE) {
+        ReturnCode discErr = nfc_start_discovery();
+        if (discErr != ST_ERR_NONE) {
             char msg[48];
             snprintf(msg, sizeof(msg),
-                     LV_SYMBOL_WARNING "  Discover err %d", (int)err);
+                     LV_SYMBOL_WARNING "  Discover err %d", (int)discErr);
             lv_label_set_text(nfc_status_lbl, msg);
             lv_obj_set_style_text_color(nfc_status_lbl,
                 lv_color_make(220, 80, 50), LV_PART_MAIN);
+            Serial.printf("[NFC] discovery failed: %d\n", (int)discErr);
             nfc_hw_ok = false;
         } else {
             lv_label_set_text(nfc_status_lbl,
                 LV_SYMBOL_REFRESH "  Scanning — hold card close");
             lv_obj_set_style_text_color(nfc_status_lbl,
                 lv_color_make(0, 180, 200), LV_PART_MAIN);
-            // UI-only timer at 100 ms — just updates labels when a card is found
             nfc_ui_timer = lv_timer_create(nfc_ui_cb, 100, NULL);
+            Serial.println("[NFC] discovery started OK, scanning...");
         }
     } else {
         lv_label_set_text(nfc_status_lbl,
@@ -434,6 +448,7 @@ void um_nfc_create()
         lv_obj_set_style_text_color(nfc_status_lbl,
             lv_color_make(220, 80, 50), LV_PART_MAIN);
         nfc_screen_state = NFC_IDLE;
+        instance.powerControl(POWER_NFC, false);
     }
 #else
     lv_label_set_text(nfc_status_lbl, "NFC not available in simulator");
@@ -456,6 +471,8 @@ void um_nfc_destroy()
         nfc_hw_ok = false;
     }
     nfc_screen_state = NFC_IDLE;
+    Serial.println("[NFC] powering off NFC chip");
+    instance.powerControl(POWER_NFC, false);
 #endif
 
     lv_group_t *g = lv_group_get_default();
