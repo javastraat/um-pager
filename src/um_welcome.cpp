@@ -12,7 +12,7 @@ static lv_obj_t  *welcome_root  = NULL;
 static lv_timer_t *welcome_timer = NULL;
 
 // LVGL image descriptor pointing at the in-flash PNG bytes
-static const lv_image_dsc_t pwa_icon_dsc = {
+static const lv_image_dsc_t um_logo_dsc = {
     .header = {
         .magic     = LV_IMAGE_HEADER_MAGIC,
         .cf        = LV_COLOR_FORMAT_RAW,
@@ -21,8 +21,8 @@ static const lv_image_dsc_t pwa_icon_dsc = {
         .h         = 512,
         .stride    = 0,
     },
-    .data_size = PWA_ICON_512_PNG_LEN,
-    .data      = PWA_ICON_512_PNG,
+    .data_size = UM_LOGO_PNG_LEN,
+    .data      = UM_LOGO_PNG,
 };
 
 static void welcome_done_cb(lv_timer_t *t)
@@ -48,7 +48,7 @@ void um_welcome_create()
     // PWA icon — scale 40/256 ≈ 80px from the 512px source.
     // Size must be set explicitly so the flex layout doesn't see 512×512.
     lv_obj_t *img = lv_image_create(welcome_root);
-    lv_image_set_src(img, &pwa_icon_dsc);
+    lv_image_set_src(img, &um_logo_dsc);
     lv_image_set_scale(img, 40);
     lv_obj_set_size(img, 80, 80);
     lv_obj_set_style_img_recolor_opa(img, LV_OPA_0, LV_PART_MAIN);
