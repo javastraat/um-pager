@@ -15,6 +15,7 @@ _SerialStub Serial;
 #include "config.h"
 volatile bool       um_time_synced         = false;
 char                um_msg_server_name[UM_MSG_SERVER_NAME_LEN] = {};
+volatile uint32_t   um_unread_count        = 0;
 
 // --- quit flag -------------------------------------------
 static volatile bool g_quit = false;

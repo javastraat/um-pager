@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "config.h"
+#include "../config.h"
 
 // -------------------------------------------------------
 // um_storage — thin SD card helper layer
@@ -44,6 +44,18 @@ int  um_storage_read(const char *path, char *buf, size_t buf_len);
 
 // Delete a file.  Returns true on success or if the file didn't exist.
 bool um_storage_remove(const char *path);
+
+// -------------------------------------------------------
+// Message inbox
+// -------------------------------------------------------
+// Save a received pager message to /messages/ as a JSON file.
+// filename: <YYYYMMDD_HHMMSS>_ric<ric>.json (or seq-based fallback)
+// ric, func, msg — as received from the mesh packet JSON.
+// from_mac — 6-byte MAC address of the sender (may be NULL).
+// Returns true on success.
+bool um_storage_save_message(uint32_t ric, uint8_t func,
+                             const char *msg,
+                             const uint8_t *from_mac);
 
 // Disk info — filled by um_storage_init(), updated on request.
 uint64_t um_storage_total_bytes();

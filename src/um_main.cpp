@@ -6,7 +6,7 @@
 #include "ota_update.h"
 #include "um_nav.h"
 #include "um_shared.h"
-#include "um_storage.h"
+#include "helpers/um_storage.h"
 
 // Defaults — settings screen writes these at runtime
 volatile uint32_t   um_sleep_timeout_ms = UM_DEFAULT_SLEEP_TIMEOUT_MS;
@@ -15,6 +15,7 @@ volatile uint8_t    um_dim_brightness   = UM_DEFAULT_DIM_BRIGHTNESS;
 volatile um_theme_t um_active_theme     = UM_THEME_DARK;
 volatile bool       um_time_synced      = false;  // set true when network time is received
 char                um_msg_server_name[UM_MSG_SERVER_NAME_LEN] = {};  // set when msg-server ident received
+volatile uint32_t   um_unread_count     = 0;      // direct pager messages not yet read
 
 // -------------------------------------------------------
 // Arduino entry points

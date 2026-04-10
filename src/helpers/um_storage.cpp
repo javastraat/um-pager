@@ -1,4 +1,6 @@
 #include "um_storage.h"
+#include <string.h>
+#include <time.h>
 #ifndef SIM_BUILD
 #include <Arduino.h>
 #include <LilyGoLib.h>
@@ -29,13 +31,18 @@ bool um_storage_init()
                   (double)SD.totalBytes() / (1024.0 * 1024.0));
 
     // Ensure standard directory tree exists
+    // Create base dir first, then subdirs
     const char *dirs[] = {
+        UM_SD_BASE_DIR,
         UM_SD_DIR_MESSAGES,
         UM_SD_DIR_OTA,
         UM_SD_DIR_LOGS,
     };
     for (auto d : dirs) {
-        if (!SD.exists(d)) {
+        File f = SD.open(d);
+        bool exists = f && f.isDirectory();
+        if (f) f.close();
+        if (!exists) {
             if (SD.mkdir(d)) {
                 Serial.printf("[SD] Created %s\n", d);
             } else {
@@ -154,5 +161,85 @@ uint64_t um_storage_used_bytes()
 #else
     if (!um_sd_online) return 0;
     return SD.usedBytes();
+#endif
+}
+
+// -------------------------------------------------------
+// Message inbox
+// -------------------------------------------------------
+bool um_storage_save_message(uint32_t ric, uint8_t func,
+                             const char *msg,
+                             const uint8_t *from_mac)
+{
+#ifdef SIM_BUILD
+    (void)ric; (void)func; (void)msg; (void)from_mac;
+    return false;
+#else
+    if (!um_sd_online || !msg) return false;
+
+    // ---- Deduplication ---------------------------------------------------
+    // Simple djb2 hash of ric+msg; skip if same (ric,hash) seen recently.
+    {
+        uint32_t hash = 5381;
+        for (const char *p = msg; *p; p++)
+            hash = ((hash << 5) + hash) ^ (uint8_t)*p;
+        hash ^= ric;
+
+        struct DedupSlot { uint32_t hash; time_t ts; };
+        static DedupSlot slots[UM_MSG_DEDUP_SLOTS] = {};
+        static uint8_t   next = 0;
+
+        time_t now_t = time(nullptr);
+        for (int i = 0; i < UM_MSG_DEDUP_SLOTS; i++) {
+            if (slots[i].hash == hash &&
+                (now_t - slots[i].ts) <= UM_MSG_DEDUP_WINDOW_S) {
+                Serial.printf("[MSG] Dedup suppressed ric=%lu\n", (unsigned long)ric);
+                return false;
+            }
+        }
+        slots[next] = { hash, now_t };
+        next = (next + 1) % UM_MSG_DEDUP_SLOTS;
+    }
+
+    // Build timestamped filename using RTC (always available, even if unsynced).
+    // Append a rolling counter to avoid collisions within the same second.
+    static uint32_t seq = 0;
+    seq++;
+    char fname[72];
+    struct tm t = {};
+    time_t now = time(nullptr);
+    localtime_r(&now, &t);
+    snprintf(fname, sizeof(fname),
+             UM_SD_DIR_MESSAGES "/%04d%02d%02d_%02d%02d%02d_%04lu_ric%lu.json",
+             t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
+             t.tm_hour, t.tm_min, t.tm_sec,
+             (unsigned long)(seq & 0xFFFF),
+             (unsigned long)ric);
+
+    // Build compact JSON
+    char json[512];
+    if (from_mac) {
+        snprintf(json, sizeof(json),
+                 "{\"ric\":%lu,\"func\":%u,\"from\":\"%02X:%02X:%02X:%02X:%02X:%02X\""
+                 ",\"msg\":\"%s\"}\n",
+                 (unsigned long)ric, func,
+                 from_mac[0], from_mac[1], from_mac[2],
+                 from_mac[3], from_mac[4], from_mac[5],
+                 msg);
+    } else {
+        snprintf(json, sizeof(json),
+                 "{\"ric\":%lu,\"func\":%u,\"msg\":\"%s\"}\n",
+                 (unsigned long)ric, func, msg);
+    }
+
+    File f = SD.open(fname, FILE_WRITE);
+    if (!f) {
+        Serial.printf("[MSG] Could not save %s\n", fname);
+        return false;
+    }
+    f.print(json);
+    f.close();
+    Serial.printf("[MSG] Saved %s\n", fname);
+    return true;
 #endif
 }

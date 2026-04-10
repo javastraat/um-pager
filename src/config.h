@@ -67,9 +67,33 @@
 #define UM_MSG_SERVER_MAX_LEN      8   // max incoming callsign chars
 #define UM_MSG_SERVER_NAME_LEN    16   // display-name buffer size (incl. null)
 
+// This pager's own RIC address — messages addressed here trigger a toast notification.
+#define UM_RIC_MY_PAGER       2041152
+
 // Mesh background task poll rate
 #define UM_MESH_POLL_ACTIVE_MS   100   // when mesh screen is visible
 #define UM_MESH_POLL_BG_MS       500   // when running in background
+
+// -------------------------------------------------------
+// Mesh message inbox — RICs to exclude from being saved to SD.
+// System broadcasts (time sync, server ident) plus known
+// network-layer RICs that are not user messages.
+// -------------------------------------------------------
+#define UM_MSG_EXCLUDE_RICS { \
+    UM_RIC_TIME_SYNC,  /* 224 — time broadcast          */ \
+    UM_RIC_MSG_SERVER, /* 8   — server ident broadcast   */ \
+    200u,              /* network layer                  */ \
+    208u,              /* network layer                  */ \
+    216u,              /* network layer                  */ \
+    4512u,             /* network layer                  */ \
+    4520u              /* network layer                  */ \
+}
+#define UM_MSG_EXCLUDE_COUNT 7
+
+// Deduplication: suppress duplicate messages arriving within this window (seconds).
+#define UM_MSG_DEDUP_WINDOW_S  30
+// Number of recent (ric, hash) pairs to remember for dedup.
+#define UM_MSG_DEDUP_SLOTS     16
 
 // -------------------------------------------------------
 // SD card paths
@@ -77,9 +101,11 @@
 // All application data lives under UM_SD_ROOT.
 // -------------------------------------------------------
 #define UM_SD_ROOT          "/sd"
-#define UM_SD_DIR_MESSAGES  "/sd/messages"
-#define UM_SD_DIR_OTA       "/sd/ota"
-#define UM_SD_DIR_LOGS      "/sd/logs"
+// Paths for the Arduino SD library are card-relative (no /sd mount prefix)
+#define UM_SD_BASE_DIR      "/UniversalMesh"
+#define UM_SD_DIR_MESSAGES  "/UniversalMesh/messages"
+#define UM_SD_DIR_OTA       "/UniversalMesh/ota"
+#define UM_SD_DIR_LOGS      "/UniversalMesh/logs"
 #define UM_SD_MAX_READ_LEN  65536   // max bytes returned by um_storage_read_file
 
 // -------------------------------------------------------

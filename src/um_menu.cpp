@@ -35,16 +35,20 @@ static const MenuTile TILES[] = {
         lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES
     },
     {
+        LV_SYMBOL_SD_CARD,"Storage","SD card files",
+        lv_color_make(80, 160, 100),  UM_SCREEN_SD
+    },
+    {
         LV_SYMBOL_SETTINGS,"Settings","Device config",
         lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS
     },
     {
-        LV_SYMBOL_WARNING,"Help","About & guide",
-        lv_color_make(220, 50, 50),   UM_SCREEN_HELP
-    },
-    {
         LV_SYMBOL_LIST,"Info","System & OTA",
         lv_color_make(120, 80, 220),  UM_SCREEN_INFO
+    },
+    {
+        LV_SYMBOL_WARNING,"Help","About & guide",
+        lv_color_make(220, 50, 50),   UM_SCREEN_HELP
     },
 };
 static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
@@ -53,12 +57,13 @@ static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
 // State
 // -------------------------------------------------------
 static lv_obj_t   *menu_root          = NULL;
-static lv_obj_t   *menu_tiles[6]      = {};
+static lv_obj_t   *menu_tiles[7]      = {};
 static int         menu_focused       = 0;
 static lv_obj_t   *menu_time_lbl      = NULL;  // topbar clock
 static lv_obj_t   *menu_app_lbl       = NULL;  // topbar left label
 static lv_obj_t   *menu_coord_icon    = NULL;  // topbar coordinator indicator
 static lv_timer_t *menu_topbar_timer  = NULL;
+static lv_obj_t   *menu_msg_badge_lbl = NULL;  // Messages tile unread badge
 
 // -------------------------------------------------------
 // Tile focus / unfocus visuals
@@ -181,6 +186,20 @@ static void menu_topbar_update_cb(lv_timer_t *)
         } else {
             lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
             lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
+        }
+    }
+
+    // ---- Messages tile unread badge ----
+    if (menu_msg_badge_lbl) {
+        if (um_unread_count > 0) {
+            lv_label_set_text_fmt(menu_msg_badge_lbl,
+                                  LV_SYMBOL_BELL "  %lu new",
+                                  (unsigned long)um_unread_count);
+            lv_obj_set_style_text_color(menu_msg_badge_lbl,
+                                        lv_color_make(255, 200, 0), LV_PART_MAIN);
+        } else {
+            lv_label_set_text(menu_msg_badge_lbl, "Inbox & compose");
+            lv_obj_set_style_text_color(menu_msg_badge_lbl, um_col_text_dim(), LV_PART_MAIN);
         }
     }
 }
@@ -362,6 +381,9 @@ void um_menu_create()
         lv_label_set_long_mode(sub_lbl, LV_LABEL_LONG_WRAP);
         lv_obj_set_width(sub_lbl, lv_pct(100));
         lv_obj_set_style_text_align(sub_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+        // Store pointer for Messages tile so topbar timer can update the badge
+        if (TILES[i].target == UM_SCREEN_MESSAGES)
+            menu_msg_badge_lbl = sub_lbl;
 
         // Events
         lv_obj_add_event_cb(tile, menu_tile_click_cb,   LV_EVENT_CLICKED,  NULL);
@@ -408,9 +430,10 @@ void um_menu_destroy()
 {
     if (!menu_root) return;
     if (menu_topbar_timer) { lv_timer_del(menu_topbar_timer); menu_topbar_timer = NULL; }
-    menu_time_lbl   = NULL;
-    menu_app_lbl    = NULL;
-    menu_coord_icon = NULL;
+    menu_time_lbl      = NULL;
+    menu_app_lbl       = NULL;
+    menu_coord_icon    = NULL;
+    menu_msg_badge_lbl = NULL;
     lv_group_t *g = lv_group_get_default();
     if (g) lv_group_remove_all_objs(g);
     lv_obj_del(menu_root);

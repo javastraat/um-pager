@@ -18,6 +18,10 @@ extern volatile bool       um_time_synced;
 // Trailing digits stripped, uppercased: "pd2emc1" -> "PD2EMC".
 extern char                um_msg_server_name[UM_MSG_SERVER_NAME_LEN];
 
+// Unread direct-message counter (incremented when ric==UM_RIC_MY_PAGER arrives).
+// Reset to 0 when the Messages screen is opened.
+extern volatile uint32_t um_unread_count;
+
 // True when a coordinator MAC has been found by the mesh screen.
 // Safe to call from any screen — the mesh keeps running in the background.
 bool um_mesh_has_coordinator();

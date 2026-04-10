@@ -4,6 +4,7 @@
 #include <lvgl.h>
 #include "um_nav.h"
 #include "um_theme.h"
+#include "um_shared.h"
 
 static lv_obj_t *messages_root = NULL;
 
@@ -15,6 +16,8 @@ static void messages_back_cb(lv_event_t *e)
 
 void um_messages_create()
 {
+    um_unread_count = 0;   // clear unread badge when inbox is opened
+
     messages_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(messages_root, lv_pct(100), lv_pct(100));
     lv_obj_set_style_bg_color(messages_root, um_col_bg(), LV_PART_MAIN);

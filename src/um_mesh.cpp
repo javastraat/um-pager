@@ -9,6 +9,8 @@
 #include "um_nav.h"
 #include "um_shared.h"
 #include "config.h"
+#include "helpers/um_storage.h"
+#include "helpers/um_toast.h"
 
 // Forward declarations
 static void um_discovery_task(void *param);
@@ -202,6 +204,27 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
                     char mslog[48];
                     snprintf(mslog, sizeof(mslog), "[MSG-SRV] %s", um_msg_server_name);
                     um_log_push(mslog);
+                }
+            }
+            // ---- Inbox: save user messages to SD -------------------------
+            // Any ric/func/msg packet not in the exclude list is a user message.
+            {
+                const char *msg_field = jdoc["msg"] | "";
+                static const uint32_t exclude[] = UM_MSG_EXCLUDE_RICS;
+                bool excluded = false;
+                for (size_t xi = 0; xi < UM_MSG_EXCLUDE_COUNT; xi++) {
+                    if (ric == exclude[xi]) { excluded = true; break; }
+                }
+                if (!excluded && msg_field[0] != '\0') {
+                    bool saved = um_storage_save_message(ric, func, msg_field, senderMac);
+                    // Direct message to this pager → toast + unread badge
+                    if (saved && ric == UM_RIC_MY_PAGER) {
+                        um_unread_count = um_unread_count + 1;
+                        char toast_txt[80];
+                        snprintf(toast_txt, sizeof(toast_txt),
+                                 "New message · RIC %lu", (unsigned long)ric);
+                        um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+                    }
                 }
             }
         }
