@@ -41,7 +41,14 @@ static void fw_ui(lv_obj_t *bar, lv_obj_t *lbl, lv_obj_t *close_btn,
     if (show_close && close_btn) {
         lv_obj_remove_flag(close_btn, LV_OBJ_FLAG_HIDDEN);
     }
-    lv_timer_handler();
+    // Use lv_refr_now instead of lv_timer_handler: we only need to push
+    // the updated widgets to the display.  lv_timer_handler also processes
+    // indevs and internal timers which is unsafe while we are blocking the
+    // main loop — it leaves dangling indev state that causes a
+    // LoadProhibited crash (NULL group_p dereference at offset 0x4c).
+    // The main loop resumes after startFwDownload() returns and handles
+    // all interaction (close button etc.) via its normal lv_timer_handler.
+    lv_refr_now(lv_display_get_default());
 }
 
 // -------------------------------------------------------
@@ -55,6 +62,16 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
     auto err_col = []() { return lv_color_make(220,  55,  55); };
     auto dim_col = []() { return lv_color_make(125, 128, 142); };
     auto txt_col = []() { return lv_color_make(220, 220, 230); };
+
+    // Focus the close/restart button now so the encoder reaches it
+    // as soon as the download finishes (or errors) and the button appears.
+    {
+        lv_group_t *g = lv_group_get_default();
+        if (g) {
+            lv_group_remove_all_objs(g);
+            if (close_btn) lv_group_add_obj(g, close_btn);
+        }
+    }
 
     // ---- 1. Stop mesh & WiFi ----
     fw_ui(bar, status_lbl, close_btn, 0,

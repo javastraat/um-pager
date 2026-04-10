@@ -253,17 +253,12 @@ void um_info_create()
         um_fw_widgets.status_lbl = status_lbl;
         um_fw_widgets.close_btn  = close_btn;
 
-        // Focus close button so encoder can reach it when it appears
-        lv_group_t *g = lv_group_get_default();
-        if (g) {
-            lv_group_remove_all_objs(g);
-            lv_group_add_obj(g, close_btn);
-        }
-
-        // Do NOT call lv_timer_handler() here — we are inside an LVGL
-        // event callback and LVGL is not reentrant.  The overlay will
-        // render on the next loop() iteration before startFwDownload()
-        // blocks.
+        // Do NOT manipulate the focus group here — dl_btn is still the
+        // indev's active object.  Removing it from the group sets
+        // dl_btn->group_p = NULL; when lv_timer_handler() later processes
+        // the button-release it dereferences that NULL and crashes.
+        // Group swap happens in startFwDownload() after the first
+        // lv_timer_handler() call has safely cleared the indev state.
         um_fwDownloadRequested = true;
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(dl_btn, [](lv_event_t *e) {
