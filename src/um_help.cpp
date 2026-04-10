@@ -3,6 +3,7 @@
 #include <LV_Helper.h>
 #include <lvgl.h>
 #include "um_nav.h"
+#include "config.h"
 
 static lv_obj_t *help_root = NULL;
 
@@ -60,7 +61,7 @@ void um_help_create()
         LV_SYMBOL_KEYBOARD "  Keyboard: type commands or messages\n"
         LV_SYMBOL_WIFI "  Mesh: scans ch1-13 for coordinator\n"
         LV_SYMBOL_POWER "  Sleep: tap power icon in the main menu\n\n"
-        "UniversalMesh v1.0  |  " NODE_NAME;
+        "UniversalMesh " UM_FW_VERSION "  |  " NODE_NAME;
 
     lv_obj_t *body = lv_label_create(help_root);
     lv_label_set_text(body, help_text);

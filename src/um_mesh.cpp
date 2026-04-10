@@ -8,21 +8,11 @@
 #include "UniversalMesh.h"
 #include "um_nav.h"
 #include "um_shared.h"
+#include "config.h"
 
 // Forward declarations
 static void um_discovery_task(void *param);
 static void um_key_bsp_cb(lv_event_t *e);
-
-// -------------------------------------------------------
-// Config
-// -------------------------------------------------------
-#ifndef NODE_NAME
-  #define NODE_NAME "um-pager"
-#endif
-#define UM_HB_INTERVAL   120000UL
-#define UM_TEMP_INTERVAL 180000UL
-#define UM_LOG_ROWS      20
-#define UM_FULL_LEN      320
 
 // -------------------------------------------------------
 // Mesh state (persists across UI destroy/create)
@@ -44,7 +34,7 @@ static SemaphoreHandle_t um_mutex        = NULL;
 static bool              um_mesh_started  = false;
 static volatile bool     um_screen_active = false; // true only while mesh screen is open
 
-static char    um_log[UM_LOG_ROWS][72]               = {};
+static char    um_log[UM_LOG_ROWS][UM_LOG_COL]        = {};
 static char    um_log_full[UM_LOG_ROWS][UM_FULL_LEN] = {};
 static uint8_t um_logHead                            = 0;
 static uint8_t um_logCount                           = 0;
@@ -70,8 +60,8 @@ static void um_log_push(const char *line, const char *full = nullptr)
 {
     if (!um_mutex) return;
     if (xSemaphoreTake(um_mutex, pdMS_TO_TICKS(10)) != pdTRUE) return;
-    strncpy(um_log[um_logHead], line, 71);
-    um_log[um_logHead][71] = '\0';
+    strncpy(um_log[um_logHead], line, UM_LOG_COL - 1);
+    um_log[um_logHead][UM_LOG_COL - 1] = '\0';
     const char *src = full ? full : line;
     strncpy(um_log_full[um_logHead], src, UM_FULL_LEN - 1);
     um_log_full[um_logHead][UM_FULL_LEN - 1] = '\0';
@@ -416,7 +406,7 @@ static void um_key_bsp_cb(lv_event_t *e)
     uint32_t key = lv_event_get_key(e);
     if (key == LV_KEY_BACKSPACE || key == 8) {
         if (um_bsp_timer) { lv_timer_reset(um_bsp_timer); return; }
-        um_bsp_timer = lv_timer_create(um_bsp_timer_cb, 600, NULL);
+        um_bsp_timer = lv_timer_create(um_bsp_timer_cb, UM_BSP_LONG_PRESS_MS, NULL);
         lv_timer_set_repeat_count(um_bsp_timer, 1);
     } else {
         if (um_bsp_timer) { lv_timer_del(um_bsp_timer); um_bsp_timer = NULL; }
@@ -573,7 +563,7 @@ static void um_update_loop(void *param)
         // When the mesh screen is visible: poll at 100 ms (was 50 ms).
         // When in the background (menu/other screens): back off to 500 ms so
         // Core-0 memory-bus pressure doesn't stutter LVGL on Core 1.
-        vTaskDelay(pdMS_TO_TICKS(um_screen_active ? 100 : 500));
+        vTaskDelay(pdMS_TO_TICKS(um_screen_active ? UM_MESH_POLL_ACTIVE_MS : UM_MESH_POLL_BG_MS));
     }
 }
 
@@ -741,7 +731,7 @@ void um_mesh_create()
                                 &um_update_task, 0);
     }
 
-    um_timer = lv_timer_create(um_timer_cb, 500, NULL);
+    um_timer = lv_timer_create(um_timer_cb, UM_MESH_UI_TIMER_MS, NULL);
     lv_timer_ready(um_timer);
 
     // Repaint any buffered log lines

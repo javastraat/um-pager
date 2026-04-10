@@ -4,6 +4,7 @@
 #include <lvgl.h>
 #include "um_nav.h"
 #include "um_shared.h"
+#include "config.h"
 #ifndef SIM_BUILD
 #include <Preferences.h>
 #endif
@@ -171,7 +172,7 @@ static void settings_key_cb(lv_event_t *e)
 //   LEFT/RIGHT while editing → change slider value, consume the event
 //   ESC/BACKSPACE while editing → exit edit mode (consume event)
 //   ESC/BACKSPACE while not editing → go back
-static const int SLIDER_STEP = 5;
+static const int SLIDER_STEP = UM_SETTINGS_SLIDER_STEP;
 
 static void slider_key_cb(lv_event_t *e)
 {
@@ -234,10 +235,10 @@ void um_settings_load()
     Preferences p;
     p.begin("um", true); // read-only namespace
     instance.setBrightness(p.getUChar("disp_br",  DEVICE_MAX_BRIGHTNESS_LEVEL));
-    instance.kb.setBrightness(p.getUChar("kb_br", 128));
-    um_dim_timeout_ms   = p.getUInt ("dim_to",  30000);
-    um_dim_brightness   = p.getUChar("dim_br",  20);
-    um_sleep_timeout_ms = p.getUInt ("sleep_to", 60000);
+    instance.kb.setBrightness(p.getUChar("kb_br", UM_DEFAULT_KB_BRIGHTNESS));
+    um_dim_timeout_ms   = p.getUInt ("dim_to",   UM_DEFAULT_DIM_TIMEOUT_MS);
+    um_dim_brightness   = p.getUChar("dim_br",   UM_DEFAULT_DIM_BRIGHTNESS);
+    um_sleep_timeout_ms = p.getUInt ("sleep_to", UM_DEFAULT_SLEEP_TIMEOUT_MS);
     p.end();
 #endif
 }
@@ -328,7 +329,7 @@ void um_settings_create()
     lv_obj_t *dim_timeout_slider = make_slider_row(
         settings_root,
         LV_SYMBOL_IMAGE, "Dim after",
-        0, 180, init_dim_s,
+        0, UM_SETTINGS_TIMEOUT_MAX_S, init_dim_s,
         dim_timeout_cb
     );
     fix_timeout_label(dim_timeout_slider, init_dim_s);
@@ -351,7 +352,7 @@ void um_settings_create()
     lv_obj_t *sleep_timeout_slider = make_slider_row(
         settings_root,
         LV_SYMBOL_POWER, "Sleep after",
-        0, 180, init_sleep_s,
+        0, UM_SETTINGS_TIMEOUT_MAX_S, init_sleep_s,
         sleep_timeout_cb
     );
     fix_timeout_label(sleep_timeout_slider, init_sleep_s);

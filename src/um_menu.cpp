@@ -5,6 +5,7 @@
 #include <time.h>
 #include "um_nav.h"
 #include "um_shared.h"
+#include "config.h"
 
 // Logo image descriptor defined in um_welcome.cpp
 extern const lv_image_dsc_t um_logo_dsc;
@@ -383,7 +384,7 @@ void um_menu_create()
     lv_obj_set_style_text_font(hint_lbl, &lv_font_montserrat_10, LV_PART_MAIN);
 
     // ---- Topbar timer: update clock + coordinator icon every 30 s ----
-    menu_topbar_timer = lv_timer_create(menu_topbar_update_cb, 30000, NULL);
+    menu_topbar_timer = lv_timer_create(menu_topbar_update_cb, UM_MENU_TOPBAR_INTERVAL_MS, NULL);
     lv_timer_ready(menu_topbar_timer); // fire immediately to show current time
 }
 

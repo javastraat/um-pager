@@ -2,21 +2,22 @@
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
 #include <lvgl.h>
+#include "config.h"
 #include "ota_update.h"
 #include "um_nav.h"
 #include "um_shared.h"
 
 // Defaults — settings screen writes these at runtime
-volatile uint32_t um_sleep_timeout_ms = 60000; // 60 s
-volatile uint32_t um_dim_timeout_ms   = 30000; // 30 s
-volatile uint8_t  um_dim_brightness   = 20;    // ~8 % of full
+volatile uint32_t um_sleep_timeout_ms = UM_DEFAULT_SLEEP_TIMEOUT_MS;
+volatile uint32_t um_dim_timeout_ms   = UM_DEFAULT_DIM_TIMEOUT_MS;
+volatile uint8_t  um_dim_brightness   = UM_DEFAULT_DIM_BRIGHTNESS;
 
 // -------------------------------------------------------
 // Arduino entry points
 // -------------------------------------------------------
 void setup()
 {
-    Serial.begin(115200);
+    Serial.begin(UM_SERIAL_BAUD);
 
     instance.begin(NO_INIT_FATFS);
     beginLvglHelper(instance);
@@ -47,7 +48,7 @@ void loop()
             otaStarted = true;
             startOtaUpdate();
         }
-        delay(20);
+        delay(UM_OTA_LOOP_DELAY_MS);
         return;
     }
 
@@ -58,7 +59,7 @@ void loop()
     {
         static bool    s_dimmed            = false;
         static uint8_t s_saved_brightness  = DEVICE_MAX_BRIGHTNESS_LEVEL;
-        static uint8_t s_saved_kb_brightness = 128;
+        static uint8_t s_saved_kb_brightness = UM_DEFAULT_KB_BRIGHTNESS;
 
         uint32_t inactive = lv_display_get_inactive_time(NULL);
 
@@ -88,5 +89,5 @@ void loop()
         }
     }
 
-    delay(2);
+    delay(UM_MAIN_LOOP_DELAY_MS);
 }

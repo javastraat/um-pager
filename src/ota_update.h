@@ -14,13 +14,7 @@
   #include <ESP8266WiFi.h>
   #include <espnow.h>
 #endif
-
-#ifndef OTA_SSID
-  #define OTA_SSID ""
-#endif
-#ifndef OTA_PASSWORD
-  #define OTA_PASSWORD ""
-#endif
+#include "config.h"
 
 static const char* wlStatusToText(wl_status_t st) {
   switch (st) {
@@ -76,7 +70,7 @@ static void startOtaUpdate() {
   WiFi.begin(OTA_SSID, OTA_PASSWORD);
   Serial.print("[OTA] Connecting to WiFi");
   unsigned long t = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t < 30000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - t < UM_OTA_CONNECT_TIMEOUT_MS) {
     delay(500);
     Serial.print(".");
   }
@@ -111,7 +105,7 @@ static void startOtaUpdate() {
 
   // Block here; ArduinoOTA reboots automatically when the upload finishes.
   // If no upload begins within 2 minutes, reboot back into normal mesh mode.
-  unsigned long otaDeadline = millis() + 120000UL;
+  unsigned long otaDeadline = millis() + UM_OTA_UPLOAD_TIMEOUT_MS;
   while (true) {
     ArduinoOTA.handle();
     if (!otaUploadStarted && millis() > otaDeadline) {
