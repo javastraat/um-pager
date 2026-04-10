@@ -165,7 +165,8 @@ static ReturnCode nfc_start_discovery()
     p.totalDuration = 1000U;
     p.notifyCb      = nfc_on_state;
     p.wakeupEnabled = false;
-    p.GBLen         = 0;  // no P2P general bytes; non-zero with GB=NULL triggers ST_ERR_PARAM
+    p.GBLen         = 0;    // no P2P general bytes; non-zero with GB=NULL triggers ST_ERR_PARAM
+    p.nfcfBR        = RFAL_BR_212;  // required when POLL_TECH_F is set, else ST_ERR_PARAM
     ReturnCode err  = NFCReader.rfalNfcDiscover(&p);
     Serial.printf("[NFC] rfalNfcDiscover returned %d\n", (int)err);
     return err;
