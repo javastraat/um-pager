@@ -172,4 +172,4 @@ The name appears in the boot splash, the menu top bar, the Help screen, and is u
 
 ## License
 
-See [LICENSE](LICENSE) if present, or contact the project maintainer.
+See [LICENSE](LICENSE.md) if present, or contact the project maintainer.
