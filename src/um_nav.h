@@ -10,6 +10,7 @@ typedef enum {
     UM_SCREEN_SETTINGS,
     UM_SCREEN_HELP,
     UM_SCREEN_LORA,
+    UM_SCREEN_INFO,
 } UMScreen;
 
 // Forward declarations — implemented in each .cpp
@@ -27,6 +28,8 @@ void um_help_create();
 void um_help_destroy();
 void um_lora_create();
 void um_lora_destroy();
+void um_info_create();
+void um_info_destroy();
 
 // -------------------------------------------------------
 // Navigator — go to a screen, or go back to menu
@@ -42,6 +45,7 @@ static void um_nav_destroy_current()
         case UM_SCREEN_SETTINGS: um_settings_destroy(); break;
         case UM_SCREEN_HELP:     um_help_destroy();     break;
         case UM_SCREEN_LORA:     um_lora_destroy();     break;
+        case UM_SCREEN_INFO:     um_info_destroy();     break;
     }
 }
 
@@ -56,6 +60,7 @@ static void um_nav_go(UMScreen screen)
         case UM_SCREEN_SETTINGS: um_settings_create(); break;
         case UM_SCREEN_HELP:     um_help_create();     break;
         case UM_SCREEN_LORA:     um_lora_create();     break;
+        case UM_SCREEN_INFO:     um_info_create();     break;
     }
 }
 

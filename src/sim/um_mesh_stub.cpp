@@ -11,6 +11,8 @@
 
 volatile bool     um_otaRequested    = false;
 volatile uint32_t um_sleep_timeout_ms = 60000;
+volatile uint32_t um_dim_timeout_ms   = 30000;
+volatile uint8_t  um_dim_brightness   = 20;
 
 static lv_obj_t *mesh_root = NULL;
 

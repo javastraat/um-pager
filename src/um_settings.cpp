@@ -32,8 +32,8 @@ static lv_obj_t *make_divider(lv_obj_t *parent)
     return div;
 }
 
-// Row: [symbol]  [label]                [slider ====]  [xx%]
-// Returns the slider widget.
+// Row: [symbol]  [label]          [slider ====]  [val]
+// Returns the slider. val_lbl pointer stored in slider user_data.
 static lv_obj_t *make_slider_row(lv_obj_t *parent,
                                   const char *symbol,
                                   const char *label_text,
@@ -72,7 +72,6 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
     lv_obj_set_style_bg_color(slider, lv_color_make(230, 200, 60), LV_PART_KNOB);
     lv_obj_set_style_pad_all(slider, 4, LV_PART_KNOB);
 
-    // value label — stored in user_data so the callback can update it
     lv_obj_t *val_lbl = lv_label_create(row);
     lv_obj_set_width(val_lbl, 46);
     lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
@@ -85,42 +84,6 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
     lv_obj_add_event_cb(slider, on_change, LV_EVENT_VALUE_CHANGED, NULL);
 
     return slider;
-}
-
-// Info row: [symbol]  [key]         [value right-aligned]
-static void make_info_row(lv_obj_t *parent, const char *symbol, const char *key, const char *value)
-{
-    lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_set_width(row, lv_pct(100));
-    lv_obj_set_height(row, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(row, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(row, 4, LV_PART_MAIN);
-    lv_obj_set_style_pad_hor(row, 4, LV_PART_MAIN);
-    lv_obj_set_style_pad_column(row, 8, LV_PART_MAIN);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    lv_obj_t *sym = lv_label_create(row);
-    lv_label_set_text(sym, symbol);
-    lv_obj_set_style_text_font(sym, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(sym, lv_color_make(100, 100, 120), LV_PART_MAIN);
-    lv_obj_set_width(sym, 20);
-
-    lv_obj_t *key_lbl = lv_label_create(row);
-    lv_label_set_text(key_lbl, key);
-    lv_obj_set_style_text_font(key_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(key_lbl, lv_color_make(180, 180, 195), LV_PART_MAIN);
-    lv_obj_set_flex_grow(key_lbl, 1);
-
-    lv_obj_t *val_lbl = lv_label_create(row);
-    lv_label_set_text(val_lbl, value);
-    lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(val_lbl, lv_color_make(100, 100, 120), LV_PART_MAIN);
-    lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
-    lv_obj_set_width(val_lbl, lv_pct(50));
-    lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_SCROLL);
 }
 
 // -------------------------------------------------------
@@ -144,10 +107,33 @@ static void kb_brightness_cb(lv_event_t *e)
     if (lbl) lv_label_set_text_fmt(lbl, "%d%%", val * 100 / 255);
 }
 
+// Timeout callbacks — label shows "Never" at 0, else "Xs"
+static void dim_timeout_cb(lv_event_t *e)
+{
+    lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
+    int val = lv_slider_get_value(slider);
+    um_dim_timeout_ms = (uint32_t)(val * 1000);
+    lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
+    if (!lbl) return;
+    if (val == 0) lv_label_set_text(lbl, "Never");
+    else          lv_label_set_text_fmt(lbl, "%ds", val);
+}
+
+static void dim_brightness_cb(lv_event_t *e)
+{
+    lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
+    int val = lv_slider_get_value(slider);
+    um_dim_brightness = (uint8_t)val;
+    lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
+    if (!lbl) return;
+    if (val == 0) lv_label_set_text(lbl, "Off");
+    else          lv_label_set_text_fmt(lbl, "%d%%", val * 100 / 255);
+}
+
 static void sleep_timeout_cb(lv_event_t *e)
 {
     lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
-    int val = lv_slider_get_value(slider); // seconds
+    int val = lv_slider_get_value(slider);
     um_sleep_timeout_ms = (uint32_t)(val * 1000);
     lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
     if (!lbl) return;
@@ -162,6 +148,15 @@ static void settings_key_cb(lv_event_t *e)
 {
     uint32_t key = lv_event_get_key(e);
     if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) um_nav_back();
+}
+
+// Helper: fix a timeout slider label after make_slider_row initialises it as "%"
+static void fix_timeout_label(lv_obj_t *slider, int val_s)
+{
+    lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
+    if (!lbl) return;
+    if (val_s == 0) lv_label_set_text(lbl, "Never");
+    else            lv_label_set_text_fmt(lbl, "%ds", val_s);
 }
 
 // -------------------------------------------------------
@@ -225,65 +220,45 @@ void um_settings_create()
         kb_brightness_cb
     );
 
-    int init_timeout_s = (int)(um_sleep_timeout_ms / 1000);
-    lv_obj_t *timeout_slider = make_slider_row(
+    make_divider(settings_root);
+
+    // ---- Section: Power saving ----
+    make_section_label(settings_root, LV_SYMBOL_POWER "  POWER SAVING");
+
+    int init_dim_s   = (int)(um_dim_timeout_ms / 1000);
+    int init_dim_val = (int)um_dim_brightness;
+    int init_sleep_s = (int)(um_sleep_timeout_ms / 1000);
+
+    lv_obj_t *dim_timeout_slider = make_slider_row(
         settings_root,
-        LV_SYMBOL_POWER, "Sleep timeout",
-        0, 180, init_timeout_s,
-        sleep_timeout_cb
+        LV_SYMBOL_IMAGE, "Dim after",
+        0, 180, init_dim_s,
+        dim_timeout_cb
     );
-    // Override the "XX%" label that make_slider_row set
-    lv_obj_t *timeout_lbl = (lv_obj_t *)lv_obj_get_user_data(timeout_slider);
-    if (timeout_lbl) {
-        if (init_timeout_s == 0) lv_label_set_text(timeout_lbl, "Never");
-        else                     lv_label_set_text_fmt(timeout_lbl, "%ds", init_timeout_s);
+    fix_timeout_label(dim_timeout_slider, init_dim_s);
+
+    lv_obj_t *dim_brightness_slider = make_slider_row(
+        settings_root,
+        LV_SYMBOL_TINT, "Dim level",
+        0, 255, init_dim_val,
+        dim_brightness_cb
+    );
+    // Fix initial label: show "Off" at 0, else "%"
+    {
+        lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(dim_brightness_slider);
+        if (lbl) {
+            if (init_dim_val == 0) lv_label_set_text(lbl, "Off");
+            else lv_label_set_text_fmt(lbl, "%d%%", init_dim_val * 100 / 255);
+        }
     }
 
-    make_divider(settings_root);
-
-    // ---- Section: System ----
-    make_section_label(settings_root, LV_SYMBOL_EYE_OPEN "  SYSTEM");
-
-    char lvgl_ver[16];
-    snprintf(lvgl_ver, sizeof(lvgl_ver), "v%d.%d.%d",
-             lv_version_major(), lv_version_minor(), lv_version_patch());
-
-    make_info_row(settings_root, LV_SYMBOL_WIFI,     "Node",    NODE_NAME);
-    make_info_row(settings_root, LV_SYMBOL_EYE_OPEN, "LVGL",   lvgl_ver);
-    make_info_row(settings_root, LV_SYMBOL_EYE_OPEN, "Built",  __DATE__ " " __TIME__);
-
-    make_divider(settings_root);
-
-    // ---- Section: Firmware ----
-    make_section_label(settings_root, LV_SYMBOL_DOWNLOAD "  FIRMWARE");
-
-    lv_obj_t *ota_btn = lv_btn_create(settings_root);
-    lv_obj_set_width(ota_btn, lv_pct(100));
-    lv_obj_set_height(ota_btn, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(ota_btn, lv_color_make(15, 25, 40), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(ota_btn, lv_color_make(0, 60, 100),
-                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(ota_btn, lv_color_make(0, 100, 160), LV_PART_MAIN);
-    lv_obj_set_style_border_width(ota_btn, 1, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(ota_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(ota_btn, 6, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(ota_btn, 8, LV_PART_MAIN);
-    lv_obj_add_event_cb(ota_btn, [](lv_event_t *e) {
-        um_otaRequested = true;
-    }, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ota_btn, settings_key_cb, LV_EVENT_KEY, NULL);
-
-    lv_obj_t *ota_lbl = lv_label_create(ota_btn);
-    lv_label_set_text(ota_lbl, LV_SYMBOL_DOWNLOAD "  OTA Update via WiFi");
-    lv_obj_set_style_text_font(ota_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ota_lbl, lv_color_make(0, 180, 255), LV_PART_MAIN);
-
-    lv_obj_t *ota_hint = lv_label_create(settings_root);
-    lv_label_set_text(ota_hint, "Connects to WiFi and waits for a PlatformIO OTA upload.");
-    lv_obj_set_width(ota_hint, lv_pct(100));
-    lv_label_set_long_mode(ota_hint, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_font(ota_hint, &lv_font_montserrat_10, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ota_hint, lv_color_make(70, 75, 90), LV_PART_MAIN);
+    lv_obj_t *sleep_timeout_slider = make_slider_row(
+        settings_root,
+        LV_SYMBOL_POWER, "Sleep after",
+        0, 180, init_sleep_s,
+        sleep_timeout_cb
+    );
+    fix_timeout_label(sleep_timeout_slider, init_sleep_s);
 
     make_divider(settings_root);
 
@@ -306,11 +281,12 @@ void um_settings_create()
     // ---- Focus group ----
     lv_group_t *g = lv_group_get_default();
     if (g) {
-        lv_group_add_obj(g, settings_root);   // catches ESC at root level
+        lv_group_add_obj(g, settings_root);
         lv_group_add_obj(g, disp_slider);
         lv_group_add_obj(g, kb_slider);
-        lv_group_add_obj(g, timeout_slider);
-        lv_group_add_obj(g, ota_btn);
+        lv_group_add_obj(g, dim_timeout_slider);
+        lv_group_add_obj(g, dim_brightness_slider);
+        lv_group_add_obj(g, sleep_timeout_slider);
         lv_group_add_obj(g, back_btn);
         lv_group_focus_obj(disp_slider);
     }

@@ -36,6 +36,10 @@ static const MenuTile TILES[] = {
         LV_SYMBOL_WARNING,  "Help",      "About & guide",
         lv_color_make(220, 50, 50),   UM_SCREEN_HELP
     },
+    {
+        LV_SYMBOL_LIST,     "Info",      "System & OTA",
+        lv_color_make(120, 80, 220),  UM_SCREEN_INFO
+    },
 };
 static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
 
@@ -43,7 +47,7 @@ static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
 // State
 // -------------------------------------------------------
 static lv_obj_t  *menu_root     = NULL;
-static lv_obj_t  *menu_tiles[5] = {};
+static lv_obj_t  *menu_tiles[6] = {};
 static int        menu_focused  = 0;
 
 // -------------------------------------------------------
