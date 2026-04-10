@@ -232,12 +232,39 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
 
     bool directToMe = (memcmp(pkt->destMac, um_myMac, 6) == 0);
     if (pkt->type != MESH_TYPE_DATA || !directToMe) return;
-    if (plen < 4 || strncmp(payload, "cmd:", 4) != 0) return;
+
+    // Plain-text direct message (not cmd: prefix, not JSON already handled above)
+    bool isCmd = (plen >= 4 && strncmp(payload, "cmd:", 4) == 0);
+    bool isJson = (plen > 0 && payload[0] == '{');
+    if (!isCmd && !isJson && plen > 0) {
+        // Save to SD as a direct message, RIC 0 = MAC-addressed
+        bool saved = um_storage_save_message(0, 0, payload, senderMac);
+        if (saved) {
+            um_unread_count = um_unread_count + 1;
+            char toast_txt[80];
+            snprintf(toast_txt, sizeof(toast_txt), "Direct: %.60s", payload);
+            um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+        }
+        char dmlog[80];
+        snprintf(dmlog, sizeof(dmlog), "[DM] %02X:%02X: %.40s",
+                 senderMac[4], senderMac[5], payload);
+        um_log_push(dmlog);
+        return;
+    }
+
+    if (!isCmd) return;
 
     bool fromCoord = (memcmp(senderMac, um_coordMac, 6) == 0);
     if (!fromCoord) { um_log_push("[CMD] Ignored - not coordinator"); return; }
 
     const char *command = payload + 4;
+
+    // Save cmd to SD so coordinator requests are auditable
+    {
+        char cmd_msg[128];
+        snprintf(cmd_msg, sizeof(cmd_msg), "cmd:%s", command);
+        um_storage_save_message(0, 0xFF, cmd_msg, senderMac);
+    }
     char ack[220];
     snprintf(ack, sizeof(ack), "command received:%s", command);
     um_mesh.send(senderMac, MESH_TYPE_DATA, pkt->appId,

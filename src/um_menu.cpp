@@ -23,7 +23,7 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,"ESP-Now","Mesh Network",
+        LV_SYMBOL_WIFI,"ESP-Now","UniMesh Network",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
