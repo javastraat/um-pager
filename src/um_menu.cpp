@@ -219,17 +219,17 @@ void um_menu_create()
     lv_obj_set_flex_flow(right_box, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(right_box, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // Coordinator indicator: wifi symbol, gray = no coordinator, blue = connected
-    menu_coord_icon = lv_label_create(right_box);
-    lv_label_set_text(menu_coord_icon, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_font(menu_coord_icon, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(menu_coord_icon, lv_color_make(70, 70, 80), LV_PART_MAIN);
-
     // Hostname
     lv_obj_t *node_lbl = lv_label_create(right_box);
     lv_label_set_text(node_lbl, NODE_NAME);
     lv_obj_set_style_text_color(node_lbl, lv_color_make(130, 130, 145), LV_PART_MAIN);
     lv_obj_set_style_text_font(node_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+
+    // Coordinator indicator: wifi symbol, gray = no coordinator, blue = connected
+    menu_coord_icon = lv_label_create(right_box);
+    lv_label_set_text(menu_coord_icon, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_font(menu_coord_icon, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_coord_icon, lv_color_make(70, 70, 80), LV_PART_MAIN);
 
     // Power / sleep button
     lv_obj_t *pwr_btn = lv_btn_create(right_box);
