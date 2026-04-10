@@ -20,7 +20,7 @@ static lv_obj_t *make_section_label(lv_obj_t *parent, const char *text)
     lv_label_set_text(lbl, text);
     lv_obj_set_width(lbl, lv_pct(100));
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lbl, lv_color_make(0, 160, 200), LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_set_style_pad_top(lbl, 6, LV_PART_MAIN);
     return lbl;
 }
@@ -29,7 +29,7 @@ static lv_obj_t *make_divider(lv_obj_t *parent)
 {
     lv_obj_t *div = lv_obj_create(parent);
     lv_obj_set_size(div, lv_pct(100), 1);
-    lv_obj_set_style_bg_color(div, lv_color_make(30, 35, 45), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(div, um_col_divider(), LV_PART_MAIN);
     lv_obj_set_style_border_width(div, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(div, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(div, 0, LV_PART_MAIN);
@@ -58,22 +58,22 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
     lv_obj_t *sym = lv_label_create(row);
     lv_label_set_text(sym, symbol);
     lv_obj_set_style_text_font(sym, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(sym, lv_color_make(200, 160, 0), LV_PART_MAIN);
+    lv_obj_set_style_text_color(sym, um_col_yellow(), LV_PART_MAIN);
     lv_obj_set_width(sym, 20);
 
     lv_obj_t *lbl = lv_label_create(row);
     lv_label_set_text(lbl, label_text);
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lbl, lv_color_make(200, 200, 210), LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl, um_col_text_sub(), LV_PART_MAIN);
     lv_obj_set_flex_grow(lbl, 1);
 
     lv_obj_t *slider = lv_slider_create(row);
     lv_obj_set_width(slider, 110);
     lv_slider_set_range(slider, val_min, val_max);
     lv_slider_set_value(slider, val_cur, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(slider, lv_color_make(30, 35, 50), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(slider, lv_color_make(200, 160, 0), LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(slider, lv_color_make(230, 200, 60), LV_PART_KNOB);
+    lv_obj_set_style_bg_color(slider, um_col_surface_deep(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(slider, um_col_yellow(), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(slider, UM_COL(230,200,60, 200,158,0), LV_PART_KNOB);
     lv_obj_set_style_pad_all(slider, 4, LV_PART_KNOB);
     // Editing state: brighter knob + outline so the user can see edit mode is active
     lv_obj_set_style_bg_color(slider, lv_color_make(255, 230, 0),
@@ -88,7 +88,7 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
     lv_obj_t *val_lbl = lv_label_create(row);
     lv_obj_set_width(val_lbl, 46);
     lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(val_lbl, lv_color_make(140, 140, 155), LV_PART_MAIN);
+    lv_obj_set_style_text_color(val_lbl, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
     int pct = (val_max > val_min) ? ((val_cur - val_min) * 100 / (val_max - val_min)) : 0;
     lv_label_set_text_fmt(val_lbl, "%d%%", pct);
@@ -239,6 +239,7 @@ void um_settings_load()
     um_dim_timeout_ms   = p.getUInt ("dim_to",   UM_DEFAULT_DIM_TIMEOUT_MS);
     um_dim_brightness   = p.getUChar("dim_br",   UM_DEFAULT_DIM_BRIGHTNESS);
     um_sleep_timeout_ms = p.getUInt ("sleep_to", UM_DEFAULT_SLEEP_TIMEOUT_MS);
+    um_active_theme     = (um_theme_t)p.getUChar("theme",  UM_THEME_DARK);
     p.end();
 #endif
 }
@@ -253,6 +254,7 @@ void um_settings_save()
     p.putUInt ("dim_to",   (uint32_t)um_dim_timeout_ms);
     p.putUChar("dim_br",   (uint8_t)um_dim_brightness);
     p.putUInt ("sleep_to", (uint32_t)um_sleep_timeout_ms);
+    p.putUChar("theme",    (uint8_t)um_active_theme);
     p.end();
 #endif
 }
@@ -265,7 +267,7 @@ void um_settings_create()
     // ---- Root (scrollable column) ----
     settings_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(settings_root, lv_pct(100), lv_pct(100));
-    lv_obj_set_style_bg_color(settings_root, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(settings_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(settings_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(settings_root, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(settings_root, 14, LV_PART_MAIN);
@@ -291,12 +293,64 @@ void um_settings_create()
     lv_obj_t *ico = lv_label_create(hdr);
     lv_label_set_text(ico, LV_SYMBOL_SETTINGS);
     lv_obj_set_style_text_font(ico, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ico, lv_color_make(200, 160, 0), LV_PART_MAIN);
+    lv_obj_set_style_text_color(ico, um_col_yellow(), LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(hdr);
     lv_label_set_text(title, "Settings");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, lv_color_make(220, 220, 230), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
+
+    make_divider(settings_root);
+
+    // ---- Section: Appearance ----
+    make_section_label(settings_root, LV_SYMBOL_EYE_OPEN "  APPEARANCE");
+
+    {
+        lv_obj_t *row = lv_obj_create(settings_root);
+        lv_obj_set_width(row, lv_pct(100));
+        lv_obj_set_height(row, LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(row, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(row, 4, LV_PART_MAIN);
+        lv_obj_set_style_pad_column(row, 8, LV_PART_MAIN);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        lv_obj_t *ico = lv_label_create(row);
+        lv_label_set_text(ico, LV_SYMBOL_IMAGE);
+        lv_obj_set_style_text_font(ico, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_set_style_text_color(ico, um_col_yellow(), LV_PART_MAIN);
+        lv_obj_set_width(ico, 20);
+
+        lv_obj_t *lbl = lv_label_create(row);
+        lv_label_set_text(lbl, "Dark mode");
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_set_style_text_color(lbl, um_col_text_sub(), LV_PART_MAIN);
+        lv_obj_set_flex_grow(lbl, 1);
+
+        lv_obj_t *sw = lv_switch_create(row);
+        if (um_active_theme == UM_THEME_DARK) lv_obj_add_state(sw, LV_STATE_CHECKED);
+        // Style the switch track
+        lv_obj_set_style_bg_color(sw, um_col_divider(), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(sw, um_col_cyan(),
+                                  (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_MAIN));
+        // Knob
+        lv_obj_set_style_bg_color(sw, um_col_text_hint(), LV_PART_KNOB);
+        lv_obj_set_style_bg_color(sw, um_col_text(),
+                                  (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_KNOB));
+        lv_obj_add_event_cb(sw, [](lv_event_t *e) {
+            lv_obj_t *sw = (lv_obj_t *)lv_event_get_target(e);
+            um_active_theme = lv_obj_has_state(sw, LV_STATE_CHECKED)
+                              ? UM_THEME_DARK : UM_THEME_LIGHT;
+            um_settings_save();
+            um_nav_go(UM_SCREEN_MENU); // rebuild all screens with new theme
+        }, LV_EVENT_VALUE_CHANGED, NULL);
+        lv_obj_add_event_cb(sw, settings_key_cb, LV_EVENT_KEY, NULL);
+
+        lv_group_t *g = lv_group_get_default();
+        if (g) lv_group_add_obj(g, sw);
+    }
 
     make_divider(settings_root);
 
@@ -363,8 +417,8 @@ void um_settings_create()
     lv_obj_t *back_btn = lv_btn_create(settings_root);
     lv_obj_set_width(back_btn, 160);
     lv_obj_set_height(back_btn, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(back_btn, lv_color_make(20, 20, 28), LV_PART_MAIN);
-    lv_obj_set_style_border_color(back_btn, lv_color_make(60, 60, 80), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(back_btn, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(back_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
@@ -372,7 +426,7 @@ void um_settings_create()
     lv_obj_add_event_cb(back_btn, settings_key_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");
-    lv_obj_set_style_text_color(back_lbl, lv_color_make(160, 160, 170), LV_PART_MAIN);
+    lv_obj_set_style_text_color(back_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 
     // ---- Focus group ----

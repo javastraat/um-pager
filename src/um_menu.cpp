@@ -73,14 +73,14 @@ static void menu_apply_focus(int idx, bool focused)
         // Bright border + slightly elevated background
         lv_obj_set_style_border_color(tile, accent, LV_PART_MAIN);
         lv_obj_set_style_border_width(tile, 2, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(tile, lv_color_make(18, 28, 38), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(tile, um_col_surface_tile_focus(), LV_PART_MAIN);
         lv_obj_set_style_shadow_color(tile, accent, LV_PART_MAIN);
         lv_obj_set_style_shadow_width(tile, 20, LV_PART_MAIN);
         lv_obj_set_style_shadow_opa(tile, LV_OPA_50, LV_PART_MAIN);
     } else {
-        lv_obj_set_style_border_color(tile, lv_color_make(40, 40, 50), LV_PART_MAIN);
+        lv_obj_set_style_border_color(tile, um_col_border(), LV_PART_MAIN);
         lv_obj_set_style_border_width(tile, 1, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(tile, lv_color_make(10, 12, 18), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(tile, um_col_surface_tile(), LV_PART_MAIN);
         lv_obj_set_style_shadow_width(tile, 0, LV_PART_MAIN);
     }
 }
@@ -164,7 +164,7 @@ static void menu_topbar_update_cb(lv_timer_t *)
     if (menu_coord_icon) {
         bool connected = um_mesh_has_coordinator();
         lv_obj_set_style_text_color(menu_coord_icon,
-            connected ? lv_color_make(0, 160, 255) : lv_color_make(70, 70, 80),
+            connected ? um_col_cyan_bright() : um_col_text_inactive(),
             LV_PART_MAIN);
     }
 }
@@ -177,7 +177,7 @@ void um_menu_create()
     menu_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(menu_root, lv_pct(100), lv_pct(100));
     lv_obj_center(menu_root);
-    lv_obj_set_style_bg_color(menu_root, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(menu_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(menu_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(menu_root, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(menu_root, 0, LV_PART_MAIN);
@@ -189,7 +189,7 @@ void um_menu_create()
     lv_obj_t *topbar = lv_obj_create(menu_root);
     lv_obj_set_width(topbar, lv_pct(100));
     lv_obj_set_height(topbar, 28);
-    lv_obj_set_style_bg_color(topbar, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(topbar, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(topbar, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(topbar, 12, LV_PART_MAIN);
     lv_obj_set_style_pad_ver(topbar, 4, LV_PART_MAIN);
@@ -200,13 +200,13 @@ void um_menu_create()
     // Left: app name
     lv_obj_t *app_lbl = lv_label_create(topbar);
     lv_label_set_text(app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
-    lv_obj_set_style_text_color(app_lbl, lv_color_make(0, 180, 220), LV_PART_MAIN);
+    lv_obj_set_style_text_color(app_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_set_style_text_font(app_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
 
     // Center: clock — updated by timer
     menu_time_lbl = lv_label_create(topbar);
     lv_label_set_text(menu_time_lbl, "--:--");
-    lv_obj_set_style_text_color(menu_time_lbl, lv_color_make(200, 200, 210), LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_time_lbl, um_col_text_sub(), LV_PART_MAIN);
     lv_obj_set_style_text_font(menu_time_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
 
     // Right container: coordinator icon + power button
@@ -223,20 +223,20 @@ void um_menu_create()
     // Hostname
     lv_obj_t *node_lbl = lv_label_create(right_box);
     lv_label_set_text(node_lbl, NODE_NAME);
-    lv_obj_set_style_text_color(node_lbl, lv_color_make(130, 130, 145), LV_PART_MAIN);
+    lv_obj_set_style_text_color(node_lbl, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_style_text_font(node_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
 
     // Coordinator indicator: wifi symbol, gray = no coordinator, blue = connected
     menu_coord_icon = lv_label_create(right_box);
     lv_label_set_text(menu_coord_icon, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_font(menu_coord_icon, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(menu_coord_icon, lv_color_make(70, 70, 80), LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_coord_icon, um_col_text_inactive(), LV_PART_MAIN);
 
     // Power / sleep button
     lv_obj_t *pwr_btn = lv_btn_create(right_box);
     lv_obj_set_size(pwr_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(pwr_btn, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_color(pwr_btn, lv_color_make(40, 40, 50), LV_PART_MAIN);
+    lv_obj_set_style_border_color(pwr_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(pwr_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_radius(pwr_btn, 6, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(pwr_btn, 0, LV_PART_MAIN);
@@ -271,7 +271,7 @@ void um_menu_create()
     // ---- Thin accent line under topbar ----
     lv_obj_t *accent_line = lv_obj_create(menu_root);
     lv_obj_set_size(accent_line, lv_pct(100), 1);
-    lv_obj_set_style_bg_color(accent_line, lv_color_make(0, 60, 90), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(accent_line, um_col_accent_line(), LV_PART_MAIN);
     lv_obj_set_style_border_width(accent_line, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(accent_line, 0, LV_PART_MAIN);
 
@@ -279,7 +279,7 @@ void um_menu_create()
     lv_obj_t *tile_row = lv_obj_create(menu_root);
     lv_obj_set_width(tile_row, lv_pct(100));
     lv_obj_set_flex_grow(tile_row, 1);
-    lv_obj_set_style_bg_color(tile_row, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(tile_row, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(tile_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(tile_row, 10, LV_PART_MAIN);
     lv_obj_set_style_pad_column(tile_row, 10, LV_PART_MAIN);
@@ -304,9 +304,9 @@ void um_menu_create()
         menu_tiles[i] = tile;
         lv_obj_set_width(tile, tile_w);
         lv_obj_set_height(tile, lv_pct(100));
-        lv_obj_set_style_bg_color(tile, lv_color_make(10, 12, 18), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(tile, um_col_surface_tile(), LV_PART_MAIN);
         lv_obj_set_style_radius(tile, 10, LV_PART_MAIN);
-        lv_obj_set_style_border_color(tile, lv_color_make(40, 40, 50), LV_PART_MAIN);
+        lv_obj_set_style_border_color(tile, um_col_border(), LV_PART_MAIN);
         lv_obj_set_style_border_width(tile, 1, LV_PART_MAIN);
         lv_obj_set_style_shadow_width(tile, 0, LV_PART_MAIN);
         lv_obj_set_style_pad_all(tile, 8, LV_PART_MAIN);
@@ -336,13 +336,13 @@ void um_menu_create()
         lv_obj_t *title_lbl = lv_label_create(tile);
         lv_label_set_text(title_lbl, TILES[i].title);
         lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_18, LV_PART_MAIN);
-        lv_obj_set_style_text_color(title_lbl, lv_color_make(220, 220, 230), LV_PART_MAIN);
+        lv_obj_set_style_text_color(title_lbl, um_col_text(), LV_PART_MAIN);
 
         // Subtitle
         lv_obj_t *sub_lbl = lv_label_create(tile);
         lv_label_set_text(sub_lbl, TILES[i].subtitle);
         lv_obj_set_style_text_font(sub_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-        lv_obj_set_style_text_color(sub_lbl, lv_color_make(150, 150, 165), LV_PART_MAIN);
+        lv_obj_set_style_text_color(sub_lbl, um_col_text_dim(), LV_PART_MAIN);
         lv_label_set_long_mode(sub_lbl, LV_LABEL_LONG_WRAP);
         lv_obj_set_width(sub_lbl, lv_pct(100));
         lv_obj_set_style_text_align(sub_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
@@ -363,14 +363,14 @@ void um_menu_create()
     // ---- Bottom hint bar ----
     lv_obj_t *hint_line = lv_obj_create(menu_root);
     lv_obj_set_size(hint_line, lv_pct(100), 1);
-    lv_obj_set_style_bg_color(hint_line, lv_color_make(0, 60, 90), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(hint_line, um_col_accent_line(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hint_line, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(hint_line, 0, LV_PART_MAIN);
 
     lv_obj_t *hint = lv_obj_create(menu_root);
     lv_obj_set_width(hint, lv_pct(100));
     lv_obj_set_height(hint, 18);
-    lv_obj_set_style_bg_color(hint, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(hint, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hint, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(hint, 12, LV_PART_MAIN);
     lv_obj_set_style_pad_ver(hint, 2, LV_PART_MAIN);
@@ -380,7 +380,7 @@ void um_menu_create()
 
     lv_obj_t *hint_lbl = lv_label_create(hint);
     lv_label_set_text(hint_lbl, LV_SYMBOL_LEFT " / " LV_SYMBOL_RIGHT " navigate      " LV_SYMBOL_OK " select");
-    lv_obj_set_style_text_color(hint_lbl, lv_color_make(130, 130, 145), LV_PART_MAIN);
+    lv_obj_set_style_text_color(hint_lbl, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_style_text_font(hint_lbl, &lv_font_montserrat_10, LV_PART_MAIN);
 
     // ---- Topbar timer: update clock + coordinator icon every 30 s ----

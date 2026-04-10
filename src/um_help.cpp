@@ -4,6 +4,7 @@
 #include <lvgl.h>
 #include "um_nav.h"
 #include "config.h"
+#include "um_theme.h"
 
 static lv_obj_t *help_root = NULL;
 
@@ -17,7 +18,7 @@ void um_help_create()
 {
     help_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(help_root, lv_pct(100), lv_pct(100));
-    lv_obj_set_style_bg_color(help_root, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(help_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(help_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(help_root, 0, LV_PART_MAIN);
     lv_obj_clear_flag(help_root, LV_OBJ_FLAG_SCROLLABLE);
@@ -41,17 +42,17 @@ void um_help_create()
     lv_obj_t *ico = lv_label_create(hdr);
     lv_label_set_text(ico, LV_SYMBOL_WARNING);
     lv_obj_set_style_text_font(ico, &lv_font_montserrat_28, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ico, lv_color_make(220, 50, 50), LV_PART_MAIN);
+    lv_obj_set_style_text_color(ico, um_col_red(), LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(hdr);
     lv_label_set_text(title, "Help & About");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, lv_color_make(220, 220, 230), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
 
     // Divider
     lv_obj_t *div = lv_obj_create(help_root);
     lv_obj_set_size(div, lv_pct(100), 1);
-    lv_obj_set_style_bg_color(div, lv_color_make(40, 40, 55), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(div, um_col_divider(), LV_PART_MAIN);
     lv_obj_set_style_border_width(div, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(div, 0, LV_PART_MAIN);
 
@@ -66,7 +67,7 @@ void um_help_create()
     lv_obj_t *body = lv_label_create(help_root);
     lv_label_set_text(body, help_text);
     lv_obj_set_style_text_font(body, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(body, lv_color_make(120, 130, 140), LV_PART_MAIN);
+    lv_obj_set_style_text_color(body, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_set_width(body, lv_pct(100));
     lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
     lv_obj_set_flex_grow(body, 1);
@@ -74,8 +75,8 @@ void um_help_create()
     // Back button
     lv_obj_t *back_btn = lv_btn_create(help_root);
     lv_obj_set_width(back_btn, 160);
-    lv_obj_set_style_bg_color(back_btn, lv_color_make(20, 20, 28), LV_PART_MAIN);
-    lv_obj_set_style_border_color(back_btn, lv_color_make(60, 60, 80), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(back_btn, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(back_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
@@ -83,7 +84,7 @@ void um_help_create()
     lv_obj_add_event_cb(back_btn, help_back_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");
-    lv_obj_set_style_text_color(back_lbl, lv_color_make(160, 160, 170), LV_PART_MAIN);
+    lv_obj_set_style_text_color(back_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 
     lv_group_t *g = lv_group_get_default();

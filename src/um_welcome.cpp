@@ -5,6 +5,7 @@
 #include "um_nav.h"
 #include "um_logo.h"
 #include "config.h"
+#include "um_theme.h"
 
 // -------------------------------------------------------
 // Boot/welcome splash — shown for 3 s then goes to menu
@@ -53,7 +54,7 @@ void um_welcome_create()
     welcome_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(welcome_root, lv_pct(100), lv_pct(100));
     lv_obj_center(welcome_root);
-    lv_obj_set_style_bg_color(welcome_root, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(welcome_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(welcome_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(welcome_root, 0, LV_PART_MAIN);
     lv_obj_clear_flag(welcome_root, LV_OBJ_FLAG_SCROLLABLE);
@@ -75,12 +76,12 @@ void um_welcome_create()
     lv_obj_t *title = lv_label_create(welcome_root);
     lv_label_set_text(title, "UniversalMesh");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_28, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, lv_color_make(0, 210, 255), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
 
     // Accent bar
     lv_obj_t *bar = lv_obj_create(welcome_root);
     lv_obj_set_size(bar, 180, 2);
-    lv_obj_set_style_bg_color(bar, lv_color_make(0, 80, 120), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(bar, um_col_accent_line(), LV_PART_MAIN);
     lv_obj_set_style_border_width(bar, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(bar, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(bar, 1, LV_PART_MAIN);
@@ -89,13 +90,13 @@ void um_welcome_create()
     lv_obj_t *sub = lv_label_create(welcome_root);
     lv_label_set_text(sub, "Mesh Networking with ESP");
     lv_obj_set_style_text_font(sub, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_obj_set_style_text_color(sub, lv_color_make(140, 140, 155), LV_PART_MAIN);
+    lv_obj_set_style_text_color(sub, um_col_text_hint(), LV_PART_MAIN);
 
     // Node name
     lv_obj_t *node = lv_label_create(welcome_root);
     lv_label_set_text(node, NODE_NAME);
     lv_obj_set_style_text_font(node, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(node, lv_color_make(100, 100, 115), LV_PART_MAIN);
+    lv_obj_set_style_text_color(node, um_col_text_inactive(), LV_PART_MAIN);
 
     welcome_timer = lv_timer_create(welcome_done_cb, UM_WELCOME_DURATION_MS, NULL);
     lv_timer_set_repeat_count(welcome_timer, 1);

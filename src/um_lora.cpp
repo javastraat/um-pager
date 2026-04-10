@@ -3,6 +3,7 @@
 #include <LV_Helper.h>
 #include <lvgl.h>
 #include "um_nav.h"
+#include "um_theme.h"
 
 static lv_obj_t *lora_root = NULL;
 
@@ -16,7 +17,7 @@ void um_lora_create()
 {
     lora_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(lora_root, lv_pct(100), lv_pct(100));
-    lv_obj_set_style_bg_color(lora_root, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lora_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(lora_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(lora_root, 0, LV_PART_MAIN);
     lv_obj_clear_flag(lora_root, LV_OBJ_FLAG_SCROLLABLE);
@@ -27,23 +28,23 @@ void um_lora_create()
     lv_obj_t *ico = lv_label_create(lora_root);
     lv_label_set_text(ico, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_font(ico, &lv_font_montserrat_40, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ico, lv_color_make(255, 120, 0), LV_PART_MAIN);
+    lv_obj_set_style_text_color(ico, um_col_orange(), LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(lora_root);
     lv_label_set_text(title, "LoRa");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, lv_color_make(220, 220, 230), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
 
     lv_obj_t *sub = lv_label_create(lora_root);
     lv_label_set_text(sub, "Coming soon");
     lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(sub, lv_color_make(60, 60, 70), LV_PART_MAIN);
+    lv_obj_set_style_text_color(sub, um_col_text_inactive(), LV_PART_MAIN);
 
     // Back button
     lv_obj_t *back_btn = lv_btn_create(lora_root);
     lv_obj_set_width(back_btn, 160);
-    lv_obj_set_style_bg_color(back_btn, lv_color_make(20, 20, 28), LV_PART_MAIN);
-    lv_obj_set_style_border_color(back_btn, lv_color_make(60, 60, 80), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(back_btn, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(back_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
@@ -51,7 +52,7 @@ void um_lora_create()
     lv_obj_add_event_cb(back_btn, lora_back_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");
-    lv_obj_set_style_text_color(back_lbl, lv_color_make(160, 160, 170), LV_PART_MAIN);
+    lv_obj_set_style_text_color(back_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 
     lv_group_t *g = lv_group_get_default();

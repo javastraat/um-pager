@@ -3,7 +3,7 @@
 #include <LV_Helper.h>
 #include <lvgl.h>
 #include "um_nav.h"
-#include "um_shared.h"
+#include "um_shared.h"   // pulls in um_theme.h
 
 static lv_obj_t *info_root = NULL;
 
@@ -14,7 +14,7 @@ static lv_obj_t *make_divider(lv_obj_t *parent)
 {
     lv_obj_t *div = lv_obj_create(parent);
     lv_obj_set_size(div, lv_pct(100), 1);
-    lv_obj_set_style_bg_color(div, lv_color_make(30, 35, 45), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(div, um_col_divider(), LV_PART_MAIN);
     lv_obj_set_style_border_width(div, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(div, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(div, 0, LV_PART_MAIN);
@@ -27,7 +27,7 @@ static lv_obj_t *make_section_label(lv_obj_t *parent, const char *text)
     lv_label_set_text(lbl, text);
     lv_obj_set_width(lbl, lv_pct(100));
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lbl, lv_color_make(0, 160, 200), LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_set_style_pad_top(lbl, 6, LV_PART_MAIN);
     return lbl;
 }
@@ -49,19 +49,19 @@ static void make_info_row(lv_obj_t *parent, const char *symbol, const char *key,
     lv_obj_t *sym = lv_label_create(row);
     lv_label_set_text(sym, symbol);
     lv_obj_set_style_text_font(sym, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(sym, lv_color_make(100, 100, 120), LV_PART_MAIN);
+    lv_obj_set_style_text_color(sym, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_width(sym, 20);
 
     lv_obj_t *key_lbl = lv_label_create(row);
     lv_label_set_text(key_lbl, key);
     lv_obj_set_style_text_font(key_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(key_lbl, lv_color_make(180, 180, 195), LV_PART_MAIN);
+    lv_obj_set_style_text_color(key_lbl, um_col_text_sub(), LV_PART_MAIN);
     lv_obj_set_flex_grow(key_lbl, 1);
 
     lv_obj_t *val_lbl = lv_label_create(row);
     lv_label_set_text(val_lbl, value);
     lv_obj_set_style_text_font(val_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(val_lbl, lv_color_make(100, 100, 120), LV_PART_MAIN);
+    lv_obj_set_style_text_color(val_lbl, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
     lv_obj_set_width(val_lbl, lv_pct(50));
     lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_SCROLL);
@@ -84,7 +84,7 @@ void um_info_create()
     // ---- Root (scrollable column) ----
     info_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(info_root, lv_pct(100), lv_pct(100));
-    lv_obj_set_style_bg_color(info_root, lv_color_make(4, 6, 10), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(info_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(info_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(info_root, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(info_root, 14, LV_PART_MAIN);
@@ -110,12 +110,12 @@ void um_info_create()
     lv_obj_t *ico = lv_label_create(hdr);
     lv_label_set_text(ico, LV_SYMBOL_LIST);
     lv_obj_set_style_text_font(ico, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ico, lv_color_make(120, 80, 220), LV_PART_MAIN);
+    lv_obj_set_style_text_color(ico, um_col_purple(), LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(hdr);
     lv_label_set_text(title, "System Info");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, lv_color_make(220, 220, 230), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
 
     make_divider(info_root);
 
@@ -138,10 +138,10 @@ void um_info_create()
     lv_obj_t *ota_btn = lv_btn_create(info_root);
     lv_obj_set_width(ota_btn, lv_pct(100));
     lv_obj_set_height(ota_btn, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(ota_btn, lv_color_make(15, 25, 40), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(ota_btn, lv_color_make(0, 60, 100),
+    lv_obj_set_style_bg_color(ota_btn, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ota_btn, um_col_focus_cyan(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(ota_btn, lv_color_make(0, 100, 160), LV_PART_MAIN);
+    lv_obj_set_style_border_color(ota_btn, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(ota_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(ota_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(ota_btn, 6, LV_PART_MAIN);
@@ -154,14 +154,14 @@ void um_info_create()
     lv_obj_t *ota_lbl = lv_label_create(ota_btn);
     lv_label_set_text(ota_lbl, LV_SYMBOL_DOWNLOAD "  OTA Update via WiFi");
     lv_obj_set_style_text_font(ota_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ota_lbl, lv_color_make(0, 180, 255), LV_PART_MAIN);
+    lv_obj_set_style_text_color(ota_lbl, um_col_cyan_bright(), LV_PART_MAIN);
 
     lv_obj_t *ota_hint = lv_label_create(info_root);
     lv_label_set_text(ota_hint, "Connects to WiFi and waits for a PlatformIO OTA upload.");
     lv_obj_set_width(ota_hint, lv_pct(100));
     lv_label_set_long_mode(ota_hint, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_font(ota_hint, &lv_font_montserrat_10, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ota_hint, lv_color_make(70, 75, 90), LV_PART_MAIN);
+    lv_obj_set_style_text_color(ota_hint, um_col_text_hint(), LV_PART_MAIN);
 
     make_divider(info_root);
 
@@ -169,8 +169,8 @@ void um_info_create()
     lv_obj_t *back_btn = lv_btn_create(info_root);
     lv_obj_set_width(back_btn, 160);
     lv_obj_set_height(back_btn, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(back_btn, lv_color_make(20, 20, 28), LV_PART_MAIN);
-    lv_obj_set_style_border_color(back_btn, lv_color_make(60, 60, 80), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(back_btn, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(back_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
@@ -178,7 +178,7 @@ void um_info_create()
     lv_obj_add_event_cb(back_btn, info_key_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");
-    lv_obj_set_style_text_color(back_lbl, lv_color_make(160, 160, 170), LV_PART_MAIN);
+    lv_obj_set_style_text_color(back_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 
     // ---- Focus group ----

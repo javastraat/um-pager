@@ -184,8 +184,8 @@ static void um_row_clicked_cb(lv_event_t *e)
 
     um_detail_cont = lv_obj_create(lv_scr_act());
     lv_obj_set_size(um_detail_cont, lv_pct(100), lv_pct(100));
-    lv_obj_set_style_bg_color(um_detail_cont, lv_color_make(8, 8, 8), LV_PART_MAIN);
-    lv_obj_set_style_border_color(um_detail_cont, lv_color_make(0, 120, 140), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(um_detail_cont, um_col_surface_deep(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(um_detail_cont, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(um_detail_cont, 1, LV_PART_MAIN);
     lv_obj_set_style_radius(um_detail_cont, 4, LV_PART_MAIN);
     lv_obj_set_style_pad_all(um_detail_cont, 8, LV_PART_MAIN);
@@ -201,23 +201,23 @@ static void um_row_clicked_cb(lv_event_t *e)
     } else {
         lv_label_set_text(msg_lbl, "(unavailable)");
     }
-    lv_obj_set_style_text_color(msg_lbl, lv_color_make(0, 220, 100), LV_PART_MAIN);
+    lv_obj_set_style_text_color(msg_lbl, um_col_green_bright(), LV_PART_MAIN);
     lv_obj_set_width(msg_lbl, lv_pct(100));
     lv_label_set_long_mode(msg_lbl, LV_LABEL_LONG_WRAP);
     lv_obj_set_flex_grow(msg_lbl, 1);
 
     lv_obj_t *close_btn = lv_btn_create(um_detail_cont);
     lv_obj_set_width(close_btn, lv_pct(100));
-    lv_obj_set_style_bg_color(close_btn, lv_color_make(25, 25, 25), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(close_btn, lv_color_make(0, 70, 0),
+    lv_obj_set_style_bg_color(close_btn, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(close_btn, um_col_focus_green(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(close_btn, lv_color_make(60, 60, 60), LV_PART_MAIN);
+    lv_obj_set_style_border_color(close_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(close_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(close_btn, 0, LV_PART_MAIN);
     lv_obj_add_event_cb(close_btn, [](lv_event_t *ev) { um_close_detail(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *close_lbl = lv_label_create(close_btn);
     lv_label_set_text(close_lbl, LV_SYMBOL_LEFT "  Close");
-    lv_obj_set_style_text_color(close_lbl, lv_color_make(160, 160, 160), LV_PART_MAIN);
+    lv_obj_set_style_text_color(close_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_center(close_lbl);
 
     lv_group_t *g = lv_group_get_default();
@@ -266,7 +266,7 @@ static void um_rebuild_rows(void)
         lv_obj_set_style_radius(row, 2, LV_PART_MAIN);
         lv_obj_set_style_pad_ver(row, 1, LV_PART_MAIN);
         lv_obj_set_style_pad_hor(row, 3, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(row, lv_color_make(0, 70, 10),
+        lv_obj_set_style_bg_color(row, um_col_focus_green(),
                                   (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER,
                                 (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
@@ -275,8 +275,8 @@ static void um_rebuild_rows(void)
         lv_label_set_text(lbl, um_log[idx]);
         lv_obj_set_width(lbl, lv_pct(100));
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_CLIP);
-        lv_obj_set_style_text_color(lbl, lv_color_make(0, 200, 0), LV_PART_MAIN);
-        lv_obj_set_style_text_color(lbl, lv_color_make(80, 255, 80),
+        lv_obj_set_style_text_color(lbl, um_col_green(), LV_PART_MAIN);
+        lv_obj_set_style_text_color(lbl, um_col_green_bright(),
                                     (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
 
         lv_obj_set_user_data(row, (void *)(intptr_t)idx);
@@ -320,12 +320,12 @@ static void um_popup_open()
     um_popup_cont = lv_obj_create(lv_scr_act());
     lv_obj_set_size(um_popup_cont, 260, 100);
     lv_obj_center(um_popup_cont);
-    lv_obj_set_style_bg_color(um_popup_cont, lv_color_make(14, 18, 28), LV_PART_MAIN);
-    lv_obj_set_style_border_color(um_popup_cont, lv_color_make(0, 140, 180), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(um_popup_cont, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(um_popup_cont, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(um_popup_cont, 2, LV_PART_MAIN);
     lv_obj_set_style_radius(um_popup_cont, 8, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(um_popup_cont, 24, LV_PART_MAIN);
-    lv_obj_set_style_shadow_color(um_popup_cont, lv_color_make(0, 100, 140), LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(um_popup_cont, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_shadow_opa(um_popup_cont, LV_OPA_40, LV_PART_MAIN);
     lv_obj_set_style_pad_all(um_popup_cont, 10, LV_PART_MAIN);
     lv_obj_clear_flag(um_popup_cont, LV_OBJ_FLAG_SCROLLABLE);
@@ -335,7 +335,7 @@ static void um_popup_open()
 
     lv_obj_t *title = lv_label_create(um_popup_cont);
     lv_label_set_text(title, LV_SYMBOL_WIFI "  Find Coordinator");
-    lv_obj_set_style_text_color(title, lv_color_make(0, 200, 255), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
     lv_obj_t *btn_row = lv_obj_create(um_popup_cont);
@@ -352,10 +352,10 @@ static void um_popup_open()
     // Scan button
     lv_obj_t *scan_btn = lv_btn_create(btn_row);
     lv_obj_set_flex_grow(scan_btn, 1);
-    lv_obj_set_style_bg_color(scan_btn, lv_color_make(0, 50, 70), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(scan_btn, lv_color_make(0, 110, 150),
+    lv_obj_set_style_bg_color(scan_btn, UM_COL(0,50,70, 200,225,242), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(scan_btn, um_col_focus_cyan(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(scan_btn, lv_color_make(0, 140, 180), LV_PART_MAIN);
+    lv_obj_set_style_border_color(scan_btn, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(scan_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(scan_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(scan_btn, 6, LV_PART_MAIN);
@@ -365,23 +365,23 @@ static void um_popup_open()
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *scan_lbl = lv_label_create(scan_btn);
     lv_label_set_text(scan_lbl, LV_SYMBOL_REFRESH "  Rescan");
-    lv_obj_set_style_text_color(scan_lbl, lv_color_make(0, 220, 255), LV_PART_MAIN);
+    lv_obj_set_style_text_color(scan_lbl, um_col_cyan_bright(), LV_PART_MAIN);
     lv_obj_center(scan_lbl);
 
     // Cancel button
     lv_obj_t *cancel_btn = lv_btn_create(btn_row);
     lv_obj_set_flex_grow(cancel_btn, 1);
-    lv_obj_set_style_bg_color(cancel_btn, lv_color_make(30, 20, 20), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(cancel_btn, lv_color_make(80, 30, 30),
+    lv_obj_set_style_bg_color(cancel_btn, UM_COL(30,20,20, 242,215,215), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(cancel_btn, um_col_focus_red(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(cancel_btn, lv_color_make(80, 40, 40), LV_PART_MAIN);
+    lv_obj_set_style_border_color(cancel_btn, UM_COL(80,40,40, 210,165,165), LV_PART_MAIN);
     lv_obj_set_style_border_width(cancel_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(cancel_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(cancel_btn, 6, LV_PART_MAIN);
     lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) { um_popup_close(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *cancel_lbl = lv_label_create(cancel_btn);
     lv_label_set_text(cancel_lbl, LV_SYMBOL_CLOSE "  Cancel");
-    lv_obj_set_style_text_color(cancel_lbl, lv_color_make(180, 100, 100), LV_PART_MAIN);
+    lv_obj_set_style_text_color(cancel_lbl, UM_COL(180,100,100, 150,35,35), LV_PART_MAIN);
     lv_obj_center(cancel_lbl);
 
     lv_group_t *g = lv_group_get_default();
@@ -580,13 +580,13 @@ static void um_timer_cb(lv_timer_t *t)
             snprintf(buf, sizeof(buf), "Scanning%s", dots[um_dotPhase % 3]);
             um_dotPhase++;
             lv_label_set_text(um_status_lbl, buf);
-            lv_obj_set_style_text_color(um_status_lbl, lv_color_make(255, 160, 0), LV_PART_MAIN);
+            lv_obj_set_style_text_color(um_status_lbl, um_col_warn(), LV_PART_MAIN);
         } else if (um_state == UM_NO_COORD) {
             lv_label_set_text(um_status_lbl, "No coordinator");
-            lv_obj_set_style_text_color(um_status_lbl, lv_color_make(255, 60, 60), LV_PART_MAIN);
+            lv_obj_set_style_text_color(um_status_lbl, um_col_err(), LV_PART_MAIN);
         } else {
             lv_label_set_text(um_status_lbl, "Connected");
-            lv_obj_set_style_text_color(um_status_lbl, lv_color_make(0, 220, 0), LV_PART_MAIN);
+            lv_obj_set_style_text_color(um_status_lbl, um_col_ok(), LV_PART_MAIN);
         }
     }
 
@@ -597,7 +597,7 @@ static void um_timer_cb(lv_timer_t *t)
                  um_myMac[0], um_myMac[1], um_myMac[2],
                  um_myMac[3], um_myMac[4], um_myMac[5]);
         lv_label_set_text(um_info_lbl, buf);
-        lv_obj_set_style_text_color(um_info_lbl, lv_color_make(150, 150, 150), LV_PART_MAIN);
+        lv_obj_set_style_text_color(um_info_lbl, um_col_text_dim(), LV_PART_MAIN);
     }
 
     if (um_log_dirty && !um_detail_cont) {
@@ -623,7 +623,7 @@ void um_mesh_create()
     um_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(um_root, lv_pct(100), lv_pct(100));
     lv_obj_center(um_root);
-    lv_obj_set_style_bg_color(um_root, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(um_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(um_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(um_root, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(um_root, 6, LV_PART_MAIN);
@@ -644,17 +644,17 @@ void um_mesh_create()
 
     lv_obj_t *hdr_title = lv_label_create(hdr);
     lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " UniversalMesh");
-    lv_obj_set_style_text_color(hdr_title, lv_color_make(0, 200, 255), LV_PART_MAIN);
+    lv_obj_set_style_text_color(hdr_title, um_col_cyan_bright(), LV_PART_MAIN);
 
     um_status_lbl = lv_label_create(hdr);
     lv_label_set_text(um_status_lbl, "...");
-    lv_obj_set_style_text_color(um_status_lbl, lv_color_make(255, 160, 0), LV_PART_MAIN);
+    lv_obj_set_style_text_color(um_status_lbl, um_col_warn(), LV_PART_MAIN);
 
     // Back button (returns to menu)
     lv_obj_t *back_btn = lv_btn_create(hdr);
     lv_obj_set_size(back_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(back_btn, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(back_btn, lv_color_make(30, 30, 50),
+    lv_obj_set_style_bg_color(back_btn, um_col_focus_cyan(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
     lv_obj_set_style_bg_opa(back_btn, LV_OPA_COVER,
                             (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
@@ -664,7 +664,7 @@ void um_mesh_create()
     lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_HOME);
-    lv_obj_set_style_text_color(back_lbl, lv_color_make(80, 100, 180), LV_PART_MAIN);
+    lv_obj_set_style_text_color(back_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 
     lv_group_t *g = lv_group_get_default();
@@ -686,20 +686,20 @@ void um_mesh_create()
     // Divider
     lv_obj_t *div = lv_obj_create(um_root);
     lv_obj_set_size(div, lv_pct(100), 1);
-    lv_obj_set_style_bg_color(div, lv_color_make(50, 50, 50), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(div, um_col_divider(), LV_PART_MAIN);
     lv_obj_set_style_border_width(div, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(div, 0, LV_PART_MAIN);
 
     // Info line
     um_info_lbl = lv_label_create(um_root);
     lv_label_set_text(um_info_lbl, "Ch:--  --:--:--:--:--:--");
-    lv_obj_set_style_text_color(um_info_lbl, lv_color_make(80, 80, 80), LV_PART_MAIN);
+    lv_obj_set_style_text_color(um_info_lbl, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_width(um_info_lbl, lv_pct(100));
 
     // Divider
     lv_obj_t *div2 = lv_obj_create(um_root);
     lv_obj_set_size(div2, lv_pct(100), 1);
-    lv_obj_set_style_bg_color(div2, lv_color_make(50, 50, 50), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(div2, um_col_divider(), LV_PART_MAIN);
     lv_obj_set_style_border_width(div2, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(div2, 0, LV_PART_MAIN);
 
@@ -714,7 +714,7 @@ void um_mesh_create()
     lv_obj_set_flex_align(um_log_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_add_flag(um_log_cont, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scroll_dir(um_log_cont, LV_DIR_VER);
-    lv_obj_set_style_bg_color(um_log_cont, lv_color_make(0, 120, 0), LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(um_log_cont, um_col_scrollbar(), LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_opa(um_log_cont, LV_OPA_COVER, LV_PART_SCROLLBAR);
     lv_obj_set_style_width(um_log_cont, 3, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(um_log_cont, 2, LV_PART_SCROLLBAR);

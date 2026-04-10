@@ -8,9 +8,10 @@
 #include "um_shared.h"
 
 // Defaults — settings screen writes these at runtime
-volatile uint32_t um_sleep_timeout_ms = UM_DEFAULT_SLEEP_TIMEOUT_MS;
-volatile uint32_t um_dim_timeout_ms   = UM_DEFAULT_DIM_TIMEOUT_MS;
-volatile uint8_t  um_dim_brightness   = UM_DEFAULT_DIM_BRIGHTNESS;
+volatile uint32_t   um_sleep_timeout_ms = UM_DEFAULT_SLEEP_TIMEOUT_MS;
+volatile uint32_t   um_dim_timeout_ms   = UM_DEFAULT_DIM_TIMEOUT_MS;
+volatile uint8_t    um_dim_brightness   = UM_DEFAULT_DIM_BRIGHTNESS;
+volatile um_theme_t um_active_theme     = UM_THEME_DARK;
 
 // -------------------------------------------------------
 // Arduino entry points
