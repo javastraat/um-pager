@@ -210,8 +210,15 @@ static void sd_add_row(const char *icon, const char *name,
     lv_obj_set_style_pad_hor(row, 2, LV_PART_MAIN);
     lv_obj_set_style_pad_column(row, 6, LV_PART_MAIN);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(row, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_set_style_bg_color(row, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(row, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_event_cb(row, sd_esc_cb, LV_EVENT_KEY, NULL);
+    if (sd_grp) lv_group_add_obj(sd_grp, row);
 
     lv_obj_t *ico = lv_label_create(row);
     lv_label_set_text(ico, icon);
@@ -259,6 +266,7 @@ static void sd_add_msg_row(const char *name, const char *size_str,
     lv_obj_set_style_pad_hor(btn, 2, LV_PART_MAIN);
     lv_obj_set_style_pad_column(btn, 6, LV_PART_MAIN);
     lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(btn, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(btn, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -411,7 +419,7 @@ void um_sd_create()
                           LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_clear_flag(sd_root, LV_OBJ_FLAG_SCROLLABLE);
 
-    // ---- Header bar ----
+    // ---- Header bar (fixed — not inside the scrollable list) ----
     lv_obj_t *hdr = lv_obj_create(sd_root);
     lv_obj_set_width(hdr, lv_pct(100));
     lv_obj_set_height(hdr, 36);
@@ -463,6 +471,7 @@ void um_sd_create()
                           LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(sd_list_cont, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(sd_list_cont, LV_SCROLLBAR_MODE_ACTIVE);
+    lv_obj_clear_flag(sd_list_cont, LV_OBJ_FLAG_SCROLL_CHAIN_VER);
 
     // Group: back_btn first, then message rows added during populate
     sd_grp = lv_group_get_default();
