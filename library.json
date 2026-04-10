@@ -1,0 +1,7 @@
+{
+  "name": "UniversalMesh",
+  "version": "0.0.0+20260410090858",
+  "build": {
+    "flags": ["-I lib/UniversalMesh"]
+  }
+}
