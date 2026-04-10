@@ -63,6 +63,18 @@ static void startFwDownload(lv_obj_t *bar, lv_obj_t *status_lbl,
     auto dim_col = []() { return lv_color_make(125, 128, 142); };
     auto txt_col = []() { return lv_color_make(220, 220, 230); };
 
+    // Reset all indevs before touching the group: the encoder still has
+    // dl_btn as its "last pressed" object.  lv_group_remove_all_objs()
+    // sets dl_btn->group_p = NULL; any subsequent indev processing that
+    // does obj->group_p->... would crash at offset 0x4c.  Resetting
+    // the indevs first clears those stale object references safely.
+    {
+        lv_indev_t *indev = NULL;
+        while ((indev = lv_indev_get_next(indev)) != NULL) {
+            lv_indev_reset(indev, NULL);
+        }
+    }
+
     // Focus the close/restart button now so the encoder reaches it
     // as soon as the download finishes (or errors) and the button appears.
     {
