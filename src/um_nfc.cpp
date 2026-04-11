@@ -375,18 +375,14 @@ void um_nfc_create()
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(home_lbl);
 
-    lv_group_t *g = lv_group_get_default();
-    if (g) {
-        lv_group_add_obj(g, home_btn);
-        lv_group_focus_obj(home_btn);
-    }
-
     // ---- Scrollable content area ----
     lv_obj_t *scroll = lv_obj_create(nfc_root);
     lv_obj_set_width(scroll, lv_pct(100));
     lv_obj_set_flex_grow(scroll, 1);
     lv_obj_set_style_bg_color(scroll, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(scroll, LV_OPA_TRANSP, LV_STATE_FOCUSED | LV_PART_MAIN);
     lv_obj_set_style_border_width(scroll, 0, LV_PART_MAIN);
+    lv_obj_set_style_outline_width(scroll, 0, LV_PART_MAIN);  // no focus ring on the area
     lv_obj_set_style_radius(scroll, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(scroll, 14, LV_PART_MAIN);
     lv_obj_set_style_pad_ver(scroll, 8, LV_PART_MAIN);
@@ -395,7 +391,20 @@ void um_nfc_create()
     lv_obj_set_flex_align(scroll, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(scroll, LV_DIR_VER);
-    lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_ACTIVE);
+    // ESC/BACKSPACE from the scroll area → go back
+    lv_obj_add_event_cb(scroll, [](lv_event_t *e) {
+        uint32_t k = lv_event_get_key(e);
+        if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE) um_nav_back();
+    }, LV_EVENT_KEY, NULL);
+
+    lv_group_t *g = lv_group_get_default();
+    if (g) {
+        lv_group_add_obj(g, scroll);   // encoder rotation scrolls content when focused
+        lv_group_focus_obj(scroll);    // focus scroll so encoder scrolls immediately
+        // home_btn is touch/click only — keeping it out of the group
+        // prevents encoder from cycling away from the scroll area
+    }
 
     nfc_status_lbl = lv_label_create(scroll);
     lv_obj_set_style_text_font(nfc_status_lbl, &lv_font_montserrat_12, LV_PART_MAIN);

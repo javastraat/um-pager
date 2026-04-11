@@ -81,62 +81,90 @@ static void info_key_cb(lv_event_t *e)
 // -------------------------------------------------------
 void um_info_create()
 {
-    // ---- Root (scrollable column) ----
+    // ---- Root — non-scrollable column (matches messages/nfc pattern) ----
     info_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(info_root, lv_pct(100), lv_pct(100));
     lv_obj_set_style_bg_color(info_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(info_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(info_root, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_hor(info_root, 14, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(info_root, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(info_root, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(info_root, 0, LV_PART_MAIN);
     lv_obj_set_flex_flow(info_root, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(info_root, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_set_scroll_dir(info_root, LV_DIR_VER);
-    lv_obj_set_scrollbar_mode(info_root, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_flex_align(info_root, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_clear_flag(info_root, LV_OBJ_FLAG_SCROLLABLE);
 
-    // ---- Header ----
+    // ---- Top bar (same as messages/nfc) ----
     lv_obj_t *hdr = lv_obj_create(info_root);
     lv_obj_set_width(hdr, lv_pct(100));
-    lv_obj_set_height(hdr, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(hdr, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_height(hdr, 36);
+    lv_obj_set_style_bg_color(hdr, um_col_surface(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_column(hdr, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(hdr, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(hdr, 6, LV_PART_MAIN);
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    lv_obj_t *ico = lv_label_create(hdr);
-    lv_label_set_text(ico, LV_SYMBOL_LIST);
-    lv_obj_set_style_text_font(ico, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ico, um_col_purple(), LV_PART_MAIN);
+    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, "System Info");
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
+    lv_label_set_text(title, LV_SYMBOL_LIST "  System Info");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
+    lv_obj_set_flex_grow(title, 1);
 
-    make_divider(info_root);
+    // Home button (top-right)
+    lv_obj_t *home_btn = lv_btn_create(hdr);
+    lv_obj_set_size(home_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(home_btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(home_btn, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(home_btn, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_width(home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(home_btn, 2, LV_PART_MAIN);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *) { um_nav_back(); },
+                        LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(home_btn, info_key_cb, LV_EVENT_KEY, NULL);
+    lv_obj_t *home_lbl = lv_label_create(home_btn);
+    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
+    lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
+    lv_obj_center(home_lbl);
+
+    // ---- Scrollable content area ----
+    lv_obj_t *scroll = lv_obj_create(info_root);
+    lv_obj_set_width(scroll, lv_pct(100));
+    lv_obj_set_flex_grow(scroll, 1);
+    lv_obj_set_style_bg_color(scroll, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(scroll, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(scroll, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(scroll, 14, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(scroll, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(scroll, 4, LV_PART_MAIN);
+    lv_obj_set_flex_flow(scroll, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(scroll, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_scroll_dir(scroll, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_ACTIVE);
 
     // ---- Section: Device ----
-    make_section_label(info_root, LV_SYMBOL_EYE_OPEN "  DEVICE");
+    make_section_label(scroll, LV_SYMBOL_EYE_OPEN "  DEVICE");
 
     char lvgl_ver[16];
     snprintf(lvgl_ver, sizeof(lvgl_ver), "v%d.%d.%d",
              lv_version_major(), lv_version_minor(), lv_version_patch());
 
-    make_info_row(info_root, LV_SYMBOL_WIFI,     "Node",    NODE_NAME);
-    make_info_row(info_root, LV_SYMBOL_EYE_OPEN, "LVGL",   lvgl_ver);
-    make_info_row(info_root, LV_SYMBOL_EYE_OPEN, "Built",  __DATE__ " " __TIME__);
+    make_info_row(scroll, LV_SYMBOL_WIFI,     "Node",   NODE_NAME);
+    make_info_row(scroll, LV_SYMBOL_EYE_OPEN, "LVGL",  lvgl_ver);
+    make_info_row(scroll, LV_SYMBOL_EYE_OPEN, "Built", __DATE__ " " __TIME__);
 
-    make_divider(info_root);
+    make_divider(scroll);
 
     // ---- Section: Firmware update ----
-    make_section_label(info_root, LV_SYMBOL_DOWNLOAD "  FIRMWARE");
+    make_section_label(scroll, LV_SYMBOL_DOWNLOAD "  FIRMWARE");
 
-    // -- Button: OTA via WiFi (existing) --
-    lv_obj_t *ota_btn = lv_btn_create(info_root);
+    // -- Button: OTA via WiFi --
+    lv_obj_t *ota_btn = lv_btn_create(scroll);
     lv_obj_set_width(ota_btn, lv_pct(100));
     lv_obj_set_height(ota_btn, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(ota_btn, um_col_surface(), LV_PART_MAIN);
@@ -147,6 +175,7 @@ void um_info_create()
     lv_obj_set_style_shadow_width(ota_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(ota_btn, 6, LV_PART_MAIN);
     lv_obj_set_style_pad_all(ota_btn, 8, LV_PART_MAIN);
+    lv_obj_add_flag(ota_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(ota_btn, [](lv_event_t *) {
         um_otaRequested = true;
     }, LV_EVENT_CLICKED, NULL);
@@ -156,7 +185,7 @@ void um_info_create()
     lv_obj_set_style_text_font(ota_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(ota_lbl, um_col_cyan_bright(), LV_PART_MAIN);
 
-    lv_obj_t *ota_hint = lv_label_create(info_root);
+    lv_obj_t *ota_hint = lv_label_create(scroll);
     lv_label_set_text(ota_hint, "Connects to WiFi and waits for a PlatformIO OTA upload.");
     lv_obj_set_width(ota_hint, lv_pct(100));
     lv_label_set_long_mode(ota_hint, LV_LABEL_LONG_WRAP);
@@ -164,7 +193,7 @@ void um_info_create()
     lv_obj_set_style_text_color(ota_hint, um_col_text_hint(), LV_PART_MAIN);
 
     // -- Button: Download latest from GitHub --
-    lv_obj_t *dl_btn = lv_btn_create(info_root);
+    lv_obj_t *dl_btn = lv_btn_create(scroll);
     lv_obj_set_width(dl_btn, lv_pct(100));
     lv_obj_set_height(dl_btn, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(dl_btn, um_col_surface(), LV_PART_MAIN);
@@ -175,6 +204,7 @@ void um_info_create()
     lv_obj_set_style_shadow_width(dl_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(dl_btn, 6, LV_PART_MAIN);
     lv_obj_set_style_pad_all(dl_btn, 8, LV_PART_MAIN);
+    lv_obj_add_flag(dl_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(dl_btn, [](lv_event_t *) {
         // Build the progress overlay
         lv_obj_t *ov = lv_obj_create(lv_scr_act());
@@ -271,7 +301,7 @@ void um_info_create()
     lv_obj_set_style_text_font(dl_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(dl_lbl, um_col_green_bright(), LV_PART_MAIN);
 
-    lv_obj_t *dl_hint = lv_label_create(info_root);
+    lv_obj_t *dl_hint = lv_label_create(scroll);
     lv_label_set_text(dl_hint, "Downloads firmware.bin to SD card (" UM_SD_DIR_OTA ").\n"
                                "After download, use OTA Update to flash it wirelessly.");
     lv_obj_set_width(dl_hint, lv_pct(100));
@@ -279,31 +309,12 @@ void um_info_create()
     lv_obj_set_style_text_font(dl_hint, &lv_font_montserrat_10, LV_PART_MAIN);
     lv_obj_set_style_text_color(dl_hint, um_col_text_hint(), LV_PART_MAIN);
 
-    make_divider(info_root);
-
-    // ---- Back button ----
-    lv_obj_t *back_btn = lv_btn_create(info_root);
-    lv_obj_set_width(back_btn, 160);
-    lv_obj_set_height(back_btn, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(back_btn, um_col_surface(), LV_PART_MAIN);
-    lv_obj_set_style_border_color(back_btn, um_col_border(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
-    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(back_btn, info_key_cb, LV_EVENT_KEY, NULL);
-    lv_obj_t *back_lbl = lv_label_create(back_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");
-    lv_obj_set_style_text_color(back_lbl, um_col_text_dim(), LV_PART_MAIN);
-    lv_obj_center(back_lbl);
-
     // ---- Focus group ----
     lv_group_t *g = lv_group_get_default();
     if (g) {
-        lv_obj_add_event_cb(ota_btn, info_key_cb, LV_EVENT_KEY, NULL);
+        lv_group_add_obj(g, home_btn);
         lv_group_add_obj(g, ota_btn);
         lv_group_add_obj(g, dl_btn);
-        lv_group_add_obj(g, back_btn);
         lv_group_focus_obj(ota_btn);
     }
 }
