@@ -23,7 +23,7 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,"ESP-Now","UniMesh Network",
+        LV_SYMBOL_WIFI,"UniMesh","ESP-NOW Network",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
@@ -188,7 +188,7 @@ static void menu_topbar_update_cb(lv_timer_t *)
             lv_label_set_text_fmt(menu_app_lbl, LV_SYMBOL_ENVELOPE "  %s", um_msg_server_name);
             lv_obj_set_style_text_color(menu_app_lbl, lv_color_make(0, 200, 80), LV_PART_MAIN);
         } else {
-            lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
+            lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh Pager");
             lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
         }
     }
