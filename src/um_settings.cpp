@@ -68,6 +68,7 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
     lv_obj_set_flex_grow(lbl, 1);
 
     lv_obj_t *slider = lv_slider_create(row);
+    lv_obj_add_flag(slider, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_set_width(slider, 110);
     lv_slider_set_range(slider, val_min, val_max);
     lv_slider_set_value(slider, val_cur, LV_ANIM_OFF);
@@ -264,49 +265,91 @@ void um_settings_save()
 // -------------------------------------------------------
 void um_settings_create()
 {
-    // ---- Root (scrollable column) ----
+    // ---- Root — non-scrollable column (matches messages/nfc pattern) ----
     settings_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(settings_root, lv_pct(100), lv_pct(100));
     lv_obj_set_style_bg_color(settings_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(settings_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(settings_root, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_hor(settings_root, 14, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(settings_root, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(settings_root, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(settings_root, 0, LV_PART_MAIN);
     lv_obj_set_flex_flow(settings_root, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(settings_root, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_set_scroll_dir(settings_root, LV_DIR_VER);
-    lv_obj_set_scrollbar_mode(settings_root, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_flex_align(settings_root, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_clear_flag(settings_root, LV_OBJ_FLAG_SCROLLABLE);
 
-    // ---- Header ----
+    // ---- Top bar ----
     lv_obj_t *hdr = lv_obj_create(settings_root);
     lv_obj_set_width(hdr, lv_pct(100));
-    lv_obj_set_height(hdr, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(hdr, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_height(hdr, 36);
+    lv_obj_set_style_bg_color(hdr, um_col_surface(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_column(hdr, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(hdr, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(hdr, 6, LV_PART_MAIN);
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    lv_obj_t *ico = lv_label_create(hdr);
-    lv_label_set_text(ico, LV_SYMBOL_SETTINGS);
-    lv_obj_set_style_text_font(ico, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ico, um_col_yellow(), LV_PART_MAIN);
+    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, "Settings");
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
+    lv_label_set_text(title, LV_SYMBOL_SETTINGS "  Settings");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
+    lv_obj_set_flex_grow(title, 1);
 
-    make_divider(settings_root);
+    // Home button (top-right)
+    lv_obj_t *home_btn = lv_btn_create(hdr);
+    lv_obj_set_size(home_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(home_btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(home_btn, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(home_btn, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_width(home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(home_btn, 2, LV_PART_MAIN);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *) { um_settings_save(); um_nav_back(); },
+                        LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(home_btn, settings_key_cb, LV_EVENT_KEY, NULL);
+    lv_obj_t *home_lbl = lv_label_create(home_btn);
+    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
+    lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
+    lv_obj_center(home_lbl);
+
+    // ---- Scrollable content area ----
+    lv_obj_t *scroll = lv_obj_create(settings_root);
+    lv_obj_set_width(scroll, lv_pct(100));
+    lv_obj_set_flex_grow(scroll, 1);
+    lv_obj_set_style_bg_color(scroll, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(scroll, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(scroll, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(scroll, 14, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(scroll, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(scroll, 4, LV_PART_MAIN);
+    lv_obj_set_flex_flow(scroll, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(scroll, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_scroll_dir(scroll, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_ACTIVE);
+
+    lv_group_t *g = lv_group_get_default();
 
     // ---- Section: Appearance ----
-    make_section_label(settings_root, LV_SYMBOL_EYE_OPEN "  APPEARANCE");
+    // Section label is first focusable item — navigating back up to it
+    // scrolls all the way to the top (same fix as info/nfc screens).
+    lv_obj_t *appear_lbl = make_section_label(scroll, LV_SYMBOL_EYE_OPEN "  APPEARANCE");
+    lv_obj_add_flag(appear_lbl, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(appear_lbl, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(appear_lbl, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_add_event_cb(appear_lbl, [](lv_event_t *ev) {
+        lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+    }, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(appear_lbl, settings_key_cb, LV_EVENT_KEY, NULL);
+    if (g) lv_group_add_obj(g, appear_lbl);
 
     {
-        lv_obj_t *row = lv_obj_create(settings_root);
+        lv_obj_t *row = lv_obj_create(scroll);
         lv_obj_set_width(row, lv_pct(100));
         lv_obj_set_height(row, LV_SIZE_CONTENT);
         lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -331,11 +374,10 @@ void um_settings_create()
 
         lv_obj_t *sw = lv_switch_create(row);
         if (um_active_theme == UM_THEME_DARK) lv_obj_add_state(sw, LV_STATE_CHECKED);
-        // Style the switch track
+        lv_obj_add_flag(sw, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
         lv_obj_set_style_bg_color(sw, um_col_divider(), LV_PART_MAIN);
         lv_obj_set_style_bg_color(sw, um_col_cyan(),
                                   (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_MAIN));
-        // Knob
         lv_obj_set_style_bg_color(sw, um_col_text_hint(), LV_PART_KNOB);
         lv_obj_set_style_bg_color(sw, um_col_text(),
                                   (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_KNOB));
@@ -344,44 +386,42 @@ void um_settings_create()
             um_active_theme = lv_obj_has_state(sw, LV_STATE_CHECKED)
                               ? UM_THEME_DARK : UM_THEME_LIGHT;
             um_settings_save();
-            um_nav_go(UM_SCREEN_MENU); // rebuild all screens with new theme
+            um_nav_go(UM_SCREEN_MENU);
         }, LV_EVENT_VALUE_CHANGED, NULL);
         lv_obj_add_event_cb(sw, settings_key_cb, LV_EVENT_KEY, NULL);
-
-        lv_group_t *g = lv_group_get_default();
         if (g) lv_group_add_obj(g, sw);
     }
 
-    make_divider(settings_root);
+    make_divider(scroll);
 
     // ---- Section: Display ----
-    make_section_label(settings_root, LV_SYMBOL_IMAGE "  DISPLAY");
+    make_section_label(scroll, LV_SYMBOL_IMAGE "  DISPLAY");
 
     lv_obj_t *disp_slider = make_slider_row(
-        settings_root,
+        scroll,
         LV_SYMBOL_IMAGE, "Brightness",
         0, 255, (int)instance.getBrightness(),
         disp_brightness_cb
     );
 
     lv_obj_t *kb_slider = make_slider_row(
-        settings_root,
+        scroll,
         LV_SYMBOL_KEYBOARD, "Keyboard backlight",
         0, 255, (int)instance.kb.getBrightness(),
         kb_brightness_cb
     );
 
-    make_divider(settings_root);
+    make_divider(scroll);
 
     // ---- Section: Power saving ----
-    make_section_label(settings_root, LV_SYMBOL_POWER "  POWER SAVING");
+    make_section_label(scroll, LV_SYMBOL_POWER "  POWER SAVING");
 
     int init_dim_s   = (int)(um_dim_timeout_ms / 1000);
     int init_dim_val = (int)um_dim_brightness;
     int init_sleep_s = (int)(um_sleep_timeout_ms / 1000);
 
     lv_obj_t *dim_timeout_slider = make_slider_row(
-        settings_root,
+        scroll,
         LV_SYMBOL_IMAGE, "Dim after",
         0, UM_SETTINGS_TIMEOUT_MAX_S, init_dim_s,
         dim_timeout_cb
@@ -389,12 +429,11 @@ void um_settings_create()
     fix_timeout_label(dim_timeout_slider, init_dim_s);
 
     lv_obj_t *dim_brightness_slider = make_slider_row(
-        settings_root,
+        scroll,
         LV_SYMBOL_TINT, "Dim level",
         0, 255, init_dim_val,
         dim_brightness_cb
     );
-    // Fix initial label: show "Off" at 0, else "%"
     {
         lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(dim_brightness_slider);
         if (lbl) {
@@ -404,36 +443,15 @@ void um_settings_create()
     }
 
     lv_obj_t *sleep_timeout_slider = make_slider_row(
-        settings_root,
+        scroll,
         LV_SYMBOL_POWER, "Sleep after",
         0, UM_SETTINGS_TIMEOUT_MAX_S, init_sleep_s,
         sleep_timeout_cb
     );
     fix_timeout_label(sleep_timeout_slider, init_sleep_s);
 
-    make_divider(settings_root);
-
-    // ---- Back button ----
-    lv_obj_t *back_btn = lv_btn_create(settings_root);
-    lv_obj_set_width(back_btn, 160);
-    lv_obj_set_height(back_btn, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(back_btn, um_col_surface(), LV_PART_MAIN);
-    lv_obj_set_style_border_color(back_btn, um_col_border(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
-    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_settings_save(); um_nav_back(); }, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(back_btn, settings_key_cb, LV_EVENT_KEY, NULL);
-    lv_obj_t *back_lbl = lv_label_create(back_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");
-    lv_obj_set_style_text_color(back_lbl, um_col_text_dim(), LV_PART_MAIN);
-    lv_obj_center(back_lbl);
-
     // ---- Focus group ----
-    // Note: settings_root is NOT added — adding a plain container as the first
-    // focusable object steals focus and makes the encoder appear unresponsive.
-    // ESC is wired directly to each interactive widget instead.
-    lv_group_t *g = lv_group_get_default();
+    // Order: appear_lbl (top anchor) → sw → sliders → home_btn
     if (g) {
         lv_obj_add_event_cb(disp_slider,           slider_key_cb, LV_EVENT_KEY, NULL);
         lv_obj_add_event_cb(kb_slider,             slider_key_cb, LV_EVENT_KEY, NULL);
@@ -446,8 +464,8 @@ void um_settings_create()
         lv_group_add_obj(g, dim_timeout_slider);
         lv_group_add_obj(g, dim_brightness_slider);
         lv_group_add_obj(g, sleep_timeout_slider);
-        lv_group_add_obj(g, back_btn);
-        lv_group_focus_obj(disp_slider);
+        lv_group_add_obj(g, home_btn);
+        lv_group_focus_obj(appear_lbl);
     }
 }
 
