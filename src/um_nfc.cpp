@@ -400,10 +400,9 @@ void um_nfc_create()
 
     lv_group_t *g = lv_group_get_default();
     if (g) {
-        lv_group_add_obj(g, scroll);   // encoder rotation scrolls content when focused
-        lv_group_focus_obj(scroll);    // focus scroll so encoder scrolls immediately
-        // home_btn is touch/click only — keeping it out of the group
-        // prevents encoder from cycling away from the scroll area
+        lv_group_add_obj(g, home_btn);
+        lv_group_add_obj(g, scroll);   // encoder scrolls content when scroll is focused
+        lv_group_focus_obj(scroll);    // start with scroll focused so you can scroll immediately
     }
 
     nfc_status_lbl = lv_label_create(scroll);
