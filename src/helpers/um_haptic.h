@@ -1,39 +1,23 @@
 #pragma once
 
 // um_haptic — DRV2605 haptic feedback helpers
-// All functions are no-ops in SIM_BUILD.
+// Navigate + select feedback is handled by instance.attachKeyboardFeedback()
+// in um_main.cpp (wired into LV_Helper_v9 encoder read callback).
+// This header provides the notification buzz used for new messages.
 
 #ifndef SIM_BUILD
 #include <LilyGoLib.h>
 
-static inline void _um_haptic_play(uint8_t effect)
-{
-    instance.drv.setWaveform(0, effect);
-    instance.drv.setWaveform(1, 0);
-    instance.drv.run();
-}
-#endif
-
-// Light tick — encoder rotate / item focus change
-static inline void um_haptic_navigate()
-{
-#ifndef SIM_BUILD
-    _um_haptic_play(6);   // Sharp Click 30%
-#endif
-}
-
-// Firm click — encoder press / item selected
-static inline void um_haptic_select()
-{
-#ifndef SIM_BUILD
-    _um_haptic_play(1);   // Strong Click 100%
-#endif
-}
-
-// Double bump — new message / notification
+// Play a double-bump notification effect (Short Double Click Strong 100%).
+// Temporarily overrides the haptic effect, then restores it.
 static inline void um_haptic_notify()
 {
-#ifndef SIM_BUILD
-    _um_haptic_play(27);  // Short Double Click Strong 100%
-#endif
+    uint8_t prev = instance.getHapticEffects();
+    instance.setHapticEffects(27);   // Short Double Click Strong 100%
+    instance.vibrator();
+    instance.setHapticEffects(prev);
 }
+
+#else
+static inline void um_haptic_notify() {}
+#endif
