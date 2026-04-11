@@ -68,6 +68,7 @@ static lv_obj_t   *menu_app_lbl       = NULL;  // topbar left label
 static lv_obj_t   *menu_coord_icon    = NULL;  // topbar coordinator indicator
 static lv_timer_t *menu_topbar_timer  = NULL;
 static lv_obj_t   *menu_msg_badge_lbl = NULL;  // Messages tile unread badge
+static lv_obj_t   *menu_bat_lbl       = NULL;  // Topbar battery indicator
 
 // -------------------------------------------------------
 // Tile focus / unfocus visuals
@@ -193,6 +194,29 @@ static void menu_topbar_update_cb(lv_timer_t *)
         }
     }
 
+    // ---- Battery indicator ----
+#ifndef SIM_BUILD
+    if (menu_bat_lbl) {
+        instance.gauge.refresh();
+        uint16_t pct  = instance.gauge.getStateOfCharge();
+        bool charging = instance.ppm.isCharging();
+        bool done     = instance.ppm.isChargeDone();
+        const char *icon = (pct > 75) ? LV_SYMBOL_BATTERY_FULL :
+                           (pct > 50) ? LV_SYMBOL_BATTERY_3    :
+                           (pct > 25) ? LV_SYMBOL_BATTERY_2    :
+                           (pct > 10) ? LV_SYMBOL_BATTERY_1    : LV_SYMBOL_BATTERY_EMPTY;
+        if (charging)
+            lv_label_set_text_fmt(menu_bat_lbl, LV_SYMBOL_CHARGE " %d%%", (int)pct);
+        else
+            lv_label_set_text_fmt(menu_bat_lbl, "%s %d%%", icon, (int)pct);
+        lv_obj_set_style_text_color(menu_bat_lbl,
+            charging        ? lv_color_make(0, 220, 80)  :
+            done            ? lv_color_make(0, 200, 80)  :
+            (pct < 15)      ? lv_color_make(220, 60, 60) : um_col_text_hint(),
+            LV_PART_MAIN);
+    }
+#endif
+
     // ---- Messages tile unread badge ----
     if (menu_msg_badge_lbl) {
         if (um_unread_count > 0) {
@@ -270,6 +294,12 @@ void um_menu_create()
     lv_label_set_text(menu_coord_icon, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_font(menu_coord_icon, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_coord_icon, um_col_text_inactive(), LV_PART_MAIN);
+
+    // Battery indicator
+    menu_bat_lbl = lv_label_create(right_box);
+    lv_label_set_text(menu_bat_lbl, LV_SYMBOL_BATTERY_FULL " --%");
+    lv_obj_set_style_text_font(menu_bat_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_bat_lbl, um_col_text_hint(), LV_PART_MAIN);
 
     // Power / sleep button
     lv_obj_t *pwr_btn = lv_btn_create(right_box);
@@ -438,6 +468,7 @@ void um_menu_destroy()
     menu_app_lbl       = NULL;
     menu_coord_icon    = NULL;
     menu_msg_badge_lbl = NULL;
+    menu_bat_lbl       = NULL;
     lv_group_t *g = lv_group_get_default();
     if (g) lv_group_remove_all_objs(g);
     lv_obj_del(menu_root);
