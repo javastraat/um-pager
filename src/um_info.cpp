@@ -32,19 +32,33 @@ static lv_obj_t *make_section_label(lv_obj_t *parent, const char *text)
     return lbl;
 }
 
-static void make_info_row(lv_obj_t *parent, const char *symbol, const char *key, const char *value)
+static void make_info_row(lv_obj_t *parent, lv_group_t *grp,
+                           const char *symbol, const char *key, const char *value)
 {
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_set_width(row, lv_pct(100));
     lv_obj_set_height(row, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(row, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(row, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
     lv_obj_set_style_border_width(row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_ver(row, 4, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(row, 4, LV_PART_MAIN);
     lv_obj_set_style_pad_column(row, 8, LV_PART_MAIN);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_event_cb(row, [](lv_event_t *ev) {
+        lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+    }, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(row, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) um_nav_back();
+    }, LV_EVENT_KEY, NULL);
+    if (grp) lv_group_add_obj(grp, row);
 
     lv_obj_t *sym = lv_label_create(row);
     lv_label_set_text(sym, symbol);
@@ -146,11 +160,7 @@ void um_info_create()
                           LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(scroll, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_ACTIVE);
-    lv_obj_set_style_outline_width(scroll, 0, LV_PART_MAIN);  // no focus ring on scroll area
-    lv_obj_add_event_cb(scroll, [](lv_event_t *e) {
-        uint32_t k = lv_event_get_key(e);
-        if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE) um_nav_back();
-    }, LV_EVENT_KEY, NULL);
+    lv_group_t *g = lv_group_get_default();
 
     // ---- Section: Device ----
     make_section_label(scroll, LV_SYMBOL_EYE_OPEN "  DEVICE");
@@ -159,9 +169,9 @@ void um_info_create()
     snprintf(lvgl_ver, sizeof(lvgl_ver), "v%d.%d.%d",
              lv_version_major(), lv_version_minor(), lv_version_patch());
 
-    make_info_row(scroll, LV_SYMBOL_WIFI,     "Node",   NODE_NAME);
-    make_info_row(scroll, LV_SYMBOL_EYE_OPEN, "LVGL",  lvgl_ver);
-    make_info_row(scroll, LV_SYMBOL_EYE_OPEN, "Built", __DATE__ " " __TIME__);
+    make_info_row(scroll, g, LV_SYMBOL_WIFI,     "Node",   NODE_NAME);
+    make_info_row(scroll, g, LV_SYMBOL_EYE_OPEN, "LVGL",  lvgl_ver);
+    make_info_row(scroll, g, LV_SYMBOL_EYE_OPEN, "Built", __DATE__ " " __TIME__);
 
     make_divider(scroll);
 
@@ -315,16 +325,15 @@ void um_info_create()
     lv_obj_set_style_text_color(dl_hint, um_col_text_hint(), LV_PART_MAIN);
 
     // ---- Focus group ----
-    // Order: home_btn → scroll (free scrolling) → ota_btn → dl_btn
-    // User starts on scroll, can scroll up/down freely; navigating forward
-    // reaches the buttons; navigating back returns to scroll for scrolling up.
-    lv_group_t *g = lv_group_get_default();
+    // Group order: device rows (added via make_info_row) → ota_btn → dl_btn → home_btn
+    // Encoder scrolls by navigating rows into view; buttons are reachable at the end.
     if (g) {
-        lv_group_add_obj(g, home_btn);
-        lv_group_add_obj(g, scroll);
         lv_group_add_obj(g, ota_btn);
         lv_group_add_obj(g, dl_btn);
-        lv_group_focus_obj(scroll);
+        lv_group_add_obj(g, home_btn);
+        // Focus first child of scroll (the Node row)
+        lv_obj_t *first_row = lv_obj_get_child(scroll, 1); // 0=section label, 1=Node row
+        if (first_row) lv_group_focus_obj(first_row);
     }
 }
 
