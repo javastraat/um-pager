@@ -253,10 +253,10 @@ void um_nfc_loop()
 // -------------------------------------------------------
 // UI helpers
 // -------------------------------------------------------
-static void nfc_back_cb(lv_event_t *e)
+static void nfc_key_cb(lv_event_t *e)
 {
-    if (lv_event_get_key(e) == LV_KEY_ESC ||
-        lv_event_get_key(e) == LV_KEY_BACKSPACE)
+    uint32_t k = lv_event_get_key(e);
+    if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE || k == LV_KEY_ENTER)
         um_nav_back();
 }
 
@@ -325,88 +325,96 @@ static void nfc_divider(lv_obj_t *parent)
 // -------------------------------------------------------
 void um_nfc_create()
 {
-    // Scrollable root — left/top aligned, same as um_info.cpp
+    // Root — column, no scroll (matches um_messages)
     nfc_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(nfc_root, lv_pct(100), lv_pct(100));
     lv_obj_set_style_bg_color(nfc_root, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(nfc_root, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(nfc_root, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_hor(nfc_root, 14, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(nfc_root, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(nfc_root, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(nfc_root, 0, LV_PART_MAIN);
     lv_obj_set_flex_flow(nfc_root, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(nfc_root, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_set_scroll_dir(nfc_root, LV_DIR_VER);
-    lv_obj_set_scrollbar_mode(nfc_root, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_clear_flag(nfc_root, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Header row: icon + title
+    // ---- Top bar (same as um_messages) ----
     lv_obj_t *hdr = lv_obj_create(nfc_root);
     lv_obj_set_width(hdr, lv_pct(100));
-    lv_obj_set_height(hdr, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(hdr, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_height(hdr, 36);
+    lv_obj_set_style_bg_color(hdr, um_col_surface(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_column(hdr, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(hdr, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(hdr, 6, LV_PART_MAIN);
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    lv_obj_t *ico = lv_label_create(hdr);
-    lv_label_set_text(ico, LV_SYMBOL_LOOP);
-    lv_obj_set_style_text_font(ico, &lv_font_montserrat_22, LV_PART_MAIN);
-    lv_obj_set_style_text_color(ico, lv_color_make(0, 200, 160), LV_PART_MAIN);
-
     lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, "NFC Reader");
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_22, LV_PART_MAIN);
+    lv_label_set_text(title, LV_SYMBOL_LOOP "  NFC Reader");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
+    lv_obj_set_flex_grow(title, 1);
 
-    nfc_status_lbl = lv_label_create(nfc_root);
+    // Home button (top-right)
+    lv_obj_t *home_btn = lv_btn_create(hdr);
+    lv_obj_set_size(home_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(home_btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(home_btn, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(home_btn, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_width(home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(home_btn, 2, LV_PART_MAIN);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *) { um_nav_back(); },
+                        LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(home_btn, nfc_key_cb, LV_EVENT_KEY, NULL);
+    lv_obj_t *home_lbl = lv_label_create(home_btn);
+    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
+    lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
+    lv_obj_center(home_lbl);
+
+    lv_group_t *g = lv_group_get_default();
+    if (g) {
+        lv_group_add_obj(g, home_btn);
+        lv_group_focus_obj(home_btn);
+    }
+
+    // ---- Scrollable content area ----
+    lv_obj_t *scroll = lv_obj_create(nfc_root);
+    lv_obj_set_width(scroll, lv_pct(100));
+    lv_obj_set_flex_grow(scroll, 1);
+    lv_obj_set_style_bg_color(scroll, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(scroll, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(scroll, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(scroll, 14, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(scroll, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(scroll, 4, LV_PART_MAIN);
+    lv_obj_set_flex_flow(scroll, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(scroll, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_scroll_dir(scroll, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_OFF);
+
+    nfc_status_lbl = lv_label_create(scroll);
     lv_obj_set_style_text_font(nfc_status_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(nfc_status_lbl, um_col_text_sub(), LV_PART_MAIN);
     lv_label_set_text(nfc_status_lbl, "Initialising...");
 
-    nfc_divider(nfc_root);
+    nfc_divider(scroll);
 
-    nfc_section(nfc_root, LV_SYMBOL_EYE_OPEN "  CARD IDENTITY");
-    nfc_uid_val     = nfc_info_row(nfc_root, LV_SYMBOL_CHARGE, "UID",     "--");
-    nfc_type_val    = nfc_info_row(nfc_root, LV_SYMBOL_WIFI,   "Type",    "--");
-    nfc_product_val = nfc_info_row(nfc_root, LV_SYMBOL_LIST,   "Product", "--");
+    nfc_section(scroll, LV_SYMBOL_EYE_OPEN "  CARD IDENTITY");
+    nfc_uid_val     = nfc_info_row(scroll, LV_SYMBOL_CHARGE, "UID",     "--");
+    nfc_type_val    = nfc_info_row(scroll, LV_SYMBOL_WIFI,   "Type",    "--");
+    nfc_product_val = nfc_info_row(scroll, LV_SYMBOL_LIST,   "Product", "--");
 
-    nfc_divider(nfc_root);
+    nfc_divider(scroll);
 
-    nfc_section(nfc_root, LV_SYMBOL_SETTINGS "  PROTOCOL DETAILS");
-    nfc_detail1_val = nfc_info_row(nfc_root, LV_SYMBOL_RIGHT, "Detail 1", "--");
-    nfc_detail2_val = nfc_info_row(nfc_root, LV_SYMBOL_RIGHT, "Detail 2", "--");
-    nfc_detail3_val = nfc_info_row(nfc_root, LV_SYMBOL_RIGHT, "Detail 3", "--");
-
-    nfc_divider(nfc_root);
-
-    lv_obj_t *back_btn = lv_btn_create(nfc_root);
-    lv_obj_set_width(back_btn, lv_pct(100));
-    lv_obj_set_height(back_btn, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(back_btn, um_col_surface(), LV_PART_MAIN);
-    lv_obj_set_style_border_color(back_btn, um_col_border(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(back_btn, 1, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(back_btn, 8, LV_PART_MAIN);
-    lv_obj_add_event_cb(back_btn, [](lv_event_t *) { um_nav_back(); },
-                        LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(back_btn, nfc_back_cb, LV_EVENT_KEY, NULL);
-    lv_obj_t *back_lbl = lv_label_create(back_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Back");
-    lv_obj_set_style_text_font(back_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(back_lbl, um_col_text_dim(), LV_PART_MAIN);
-    lv_obj_center(back_lbl);
-
-    lv_group_t *g = lv_group_get_default();
-    if (g) {
-        lv_group_add_obj(g, back_btn);
-        lv_group_focus_obj(back_btn);
-    }
+    nfc_section(scroll, LV_SYMBOL_SETTINGS "  PROTOCOL DETAILS");
+    nfc_detail1_val = nfc_info_row(scroll, LV_SYMBOL_RIGHT, "Detail 1", "--");
+    nfc_detail2_val = nfc_info_row(scroll, LV_SYMBOL_RIGHT, "Detail 2", "--");
+    nfc_detail3_val = nfc_info_row(scroll, LV_SYMBOL_RIGHT, "Detail 3", "--");
 
     // ---- NFC power + init + discovery ----
 #ifndef SIM_BUILD
