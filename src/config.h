@@ -121,4 +121,5 @@
 // -------------------------------------------------------
 // Firmware version
 // -------------------------------------------------------
-#define UM_FW_VERSION  "v1.0"
+#define UM_FW_VERSION  "v1.0.0"
+#define UM_PAGER_FW_VERSION  "v1.0"

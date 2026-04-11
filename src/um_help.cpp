@@ -98,7 +98,9 @@ void um_help_create()
         LV_SYMBOL_KEYBOARD "  Keyboard: type commands or messages\n"
         LV_SYMBOL_WIFI "  Mesh: scans ch1-13 for coordinator\n"
         LV_SYMBOL_POWER "  Sleep: tap power icon in the main menu\n\n"
-        "UniversalMesh " UM_FW_VERSION "  by PD2EMC |  " NODE_NAME;
+        "Mesh Nodename: " NODE_NAME "\n"
+        "UniversalMesh Pager " UM_PAGER_FW_VERSION " by PD2EMC (c) 2026\n"
+        "UniversalMesh " UM_FW_VERSION "  by PD8JO (c) 2026\n";
 
     lv_obj_t *body = lv_label_create(scroll);
     lv_label_set_text(body, help_text);

@@ -163,7 +163,22 @@ void um_info_create()
     lv_group_t *g = lv_group_get_default();
 
     // ---- Section: Device ----
-    make_section_label(scroll, LV_SYMBOL_EYE_OPEN "  DEVICE");
+    // The section label is the first focusable item so navigating back up
+    // past the Node row scrolls all the way to the top.
+    lv_obj_t *dev_lbl = make_section_label(scroll, LV_SYMBOL_EYE_OPEN "  DEVICE");
+    lv_obj_add_flag(dev_lbl, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(dev_lbl, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(dev_lbl, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_add_event_cb(dev_lbl, [](lv_event_t *ev) {
+        lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+    }, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(dev_lbl, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) um_nav_back();
+    }, LV_EVENT_KEY, NULL);
+    if (g) lv_group_add_obj(g, dev_lbl);
 
     char lvgl_ver[16];
     snprintf(lvgl_ver, sizeof(lvgl_ver), "v%d.%d.%d",
@@ -331,9 +346,8 @@ void um_info_create()
         lv_group_add_obj(g, ota_btn);
         lv_group_add_obj(g, dl_btn);
         lv_group_add_obj(g, home_btn);
-        // Focus first child of scroll (the Node row)
-        lv_obj_t *first_row = lv_obj_get_child(scroll, 1); // 0=section label, 1=Node row
-        if (first_row) lv_group_focus_obj(first_row);
+        // Start focus on the DEVICE label so the top of the page is visible
+        lv_group_focus_obj(dev_lbl);
     }
 }
 

@@ -414,10 +414,25 @@ void um_nfc_create()
 
     lv_group_t *g = lv_group_get_default();
 
+    // Status label is the first focusable item so navigating back up
+    // past the UID row lands here and scroll_to_view pulls it into view.
     nfc_status_lbl = lv_label_create(scroll);
     lv_obj_set_style_text_font(nfc_status_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(nfc_status_lbl, um_col_text_sub(), LV_PART_MAIN);
     lv_label_set_text(nfc_status_lbl, "Initialising...");
+    lv_obj_add_flag(nfc_status_lbl, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(nfc_status_lbl, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(nfc_status_lbl, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_add_event_cb(nfc_status_lbl, [](lv_event_t *ev) {
+        lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+    }, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(nfc_status_lbl, [](lv_event_t *e) {
+        uint32_t k = lv_event_get_key(e);
+        if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE) um_nav_back();
+    }, LV_EVENT_KEY, NULL);
+    if (g) lv_group_add_obj(g, nfc_status_lbl);
 
     nfc_divider(scroll);
 
@@ -433,12 +448,11 @@ void um_nfc_create()
     nfc_detail2_val = nfc_info_row(scroll, g, LV_SYMBOL_RIGHT, "Detail 2", "--");
     nfc_detail3_val = nfc_info_row(scroll, g, LV_SYMBOL_RIGHT, "Detail 3", "--");
 
-    // home_btn goes last so group order is: uid→type→…→detail3→home
-    // (same wrap-around pattern as messages: rows first, back/home last)
+    // home_btn goes last: status→uid→type→…→detail3→home
     if (g) {
         lv_group_add_obj(g, home_btn);
-        // Focus UID row (first data row) so scrolling starts from the top
-        if (nfc_uid_val) lv_group_focus_obj(lv_obj_get_parent(nfc_uid_val));
+        // Start focus on status label so the top of the page is always visible
+        lv_group_focus_obj(nfc_status_lbl);
     }
 
     // ---- NFC power + init + discovery ----
