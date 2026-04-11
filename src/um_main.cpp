@@ -8,6 +8,7 @@
 #include "um_nav.h"
 #include "um_shared.h"
 #include "helpers/um_storage.h"
+#include "helpers/um_haptic.h"
 
 // Defaults — settings screen writes these at runtime
 volatile uint32_t   um_sleep_timeout_ms = UM_DEFAULT_SLEEP_TIMEOUT_MS;
@@ -38,7 +39,15 @@ void setup()
         lv_indev_t *indev = NULL;
         while ((indev = lv_indev_get_next(indev)) != NULL) {
             lv_indev_set_group(indev, g);
+            // Haptic: firm click when encoder button is pressed (select)
+            lv_indev_add_event_cb(indev, [](lv_event_t *) {
+                um_haptic_select();
+            }, LV_EVENT_CLICKED, NULL);
         }
+        // Haptic: light tick whenever focus moves to a new object (navigate)
+        lv_group_set_focus_cb(g, [](lv_group_t *) {
+            um_haptic_navigate();
+        });
     }
 
     // Load persisted settings before the UI reads any of these values

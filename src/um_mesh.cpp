@@ -11,6 +11,7 @@
 #include "config.h"
 #include "helpers/um_storage.h"
 #include "helpers/um_toast.h"
+#include "helpers/um_haptic.h"
 
 // Forward declarations
 static void um_discovery_task(void *param);
@@ -226,6 +227,7 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
                         char toast_txt[80];
                         snprintf(toast_txt, sizeof(toast_txt),
                                  "New message · RIC %lu", (unsigned long)ric);
+                        um_haptic_notify();
                         um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
                     }
                 }
@@ -246,6 +248,7 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
             um_unread_count = um_unread_count + 1;
             char toast_txt[80];
             snprintf(toast_txt, sizeof(toast_txt), "Direct: %.60s", payload);
+            um_haptic_notify();
             um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
         }
         char dmlog[80];
