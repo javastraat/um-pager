@@ -332,6 +332,18 @@ static void sd_populate()
     lv_obj_set_style_text_font(sum, &lv_font_montserrat_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(sum, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(sum, 6, LV_PART_MAIN);
+    // First focusable item in the list — navigating back up past the first
+    // file row lands here and scroll_to_view pulls the page to the top.
+    lv_obj_add_flag(sum, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(sum, um_col_focus_cyan(),
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(sum, LV_OPA_COVER,
+        (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_add_event_cb(sum, [](lv_event_t *ev) {
+        lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+    }, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(sum, sd_esc_cb, LV_EVENT_KEY, NULL);
+    if (sd_grp) lv_group_add_obj(sd_grp, sum);
 
     const char *dirs[] = { UM_SD_DIR_MESSAGES, UM_SD_DIR_OTA, UM_SD_DIR_LOGS };
     for (int di = 0; di < 3; di++) {
@@ -482,9 +494,8 @@ void um_sd_create()
 
     sd_populate();
 
-    // If messages exist, focus first row rather than home button
-    if (sd_grp && sd_path_count > 0)
-        lv_group_focus_next(sd_grp);
+    // Skip back_btn and start at the disk usage summary (top of list)
+    if (sd_grp) lv_group_focus_next(sd_grp);
 }
 
 void um_sd_destroy()
