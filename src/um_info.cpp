@@ -146,6 +146,11 @@ void um_info_create()
                           LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(scroll, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_ACTIVE);
+    lv_obj_set_style_outline_width(scroll, 0, LV_PART_MAIN);  // no focus ring on scroll area
+    lv_obj_add_event_cb(scroll, [](lv_event_t *e) {
+        uint32_t k = lv_event_get_key(e);
+        if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE) um_nav_back();
+    }, LV_EVENT_KEY, NULL);
 
     // ---- Section: Device ----
     make_section_label(scroll, LV_SYMBOL_EYE_OPEN "  DEVICE");
@@ -310,12 +315,16 @@ void um_info_create()
     lv_obj_set_style_text_color(dl_hint, um_col_text_hint(), LV_PART_MAIN);
 
     // ---- Focus group ----
+    // Order: home_btn → scroll (free scrolling) → ota_btn → dl_btn
+    // User starts on scroll, can scroll up/down freely; navigating forward
+    // reaches the buttons; navigating back returns to scroll for scrolling up.
     lv_group_t *g = lv_group_get_default();
     if (g) {
         lv_group_add_obj(g, home_btn);
+        lv_group_add_obj(g, scroll);
         lv_group_add_obj(g, ota_btn);
         lv_group_add_obj(g, dl_btn);
-        lv_group_focus_obj(ota_btn);
+        lv_group_focus_obj(scroll);
     }
 }
 
