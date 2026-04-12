@@ -136,9 +136,14 @@ static void lora_tx_packet(MeshPacket *pkt)
     radio_tx_params_t tx;
     tx.data   = (uint8_t *)pkt;
     tx.length = wire_len;
-    hw_set_radio_tx(tx, false);                       // starts TX async
-    vTaskDelay(pdMS_TO_TICKS(LORA_TX_AIRTIME_MS));    // wait for airtime
-    hw_set_radio_listening();                          // back to RX
+    hw_set_radio_tx(tx, false);
+    if (tx.state != 0) {
+        char line[LORA_LOG_COL];
+        snprintf(line, sizeof(line), "[TX] failed state=%d", tx.state);
+        lora_log_push(line);
+    }
+    // TX is blocking in the HAL; return to RX immediately.
+    hw_set_radio_listening();
 #endif
 }
 

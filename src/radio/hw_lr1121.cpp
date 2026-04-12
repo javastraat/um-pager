@@ -120,8 +120,11 @@ void hw_set_radio_tx(radio_tx_params_t &params, bool continuous) {
         return;
     }
     instance.lockSPI();
-    radio.standby();   // LR1121 requires explicit standby before TX (same as coordinator)
-    params.state = radio.startTransmit(params.data, params.length);
+    // Use blocking transmit to guarantee packet leaves the radio before caller resumes.
+    params.state = radio.transmit(params.data, params.length);
+    if (params.state == RADIOLIB_ERR_NONE) {
+        last_send_millis = millis();
+    }
     instance.unlockSPI();
 }
 
