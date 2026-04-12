@@ -6,6 +6,7 @@
 #include <lvgl.h>
 #include <esp_mac.h>
 #include <stdarg.h>
+#include <math.h>
 #include "um_nav.h"
 #include "um_theme.h"
 #include "config.h"
@@ -31,6 +32,12 @@ static const float lora_freqs[] = {
 };
 static const int LORA_FREQ_COUNT = (int)(sizeof(lora_freqs) / sizeof(lora_freqs[0]));
 static int lora_freq_idx = 0;       // index of active/connected frequency
+static volatile bool lora_scan_all_req = false;
+static volatile bool lora_last_scan_was_full = false;
+static volatile bool lora_listen_only_req = false;
+static volatile bool lora_listen_only_active = false;
+static volatile bool lora_listen_probe_req = false;
+static bool lora_listen_armed = false;
 
 // -------------------------------------------------------
 // Mesh state
@@ -65,8 +72,10 @@ static volatile bool     lora_screen_active = false;
 static lv_obj_t   *lora_root       = NULL;
 static lv_obj_t   *lora_status_lbl = NULL;
 static lv_obj_t   *lora_info_lbl   = NULL;
+static lv_obj_t   *lora_mode_lbl   = NULL;
 static lv_obj_t   *lora_log_cont   = NULL;
 static lv_obj_t   *lora_popup_cont = NULL;
+static lv_obj_t   *lora_popup_connect_lbl = NULL;
 static lv_timer_t *lora_timer      = NULL;
 static lv_timer_t *lora_bsp_timer  = NULL;
 static uint8_t     lora_dot_phase  = 0;
@@ -103,6 +112,7 @@ static void lora_popup_close();
 static void lora_popup_open();
 static void lora_key_bsp_cb(lv_event_t *e);
 static void lora_rebuild_rows();
+static void lora_popup_update_connect_label();
 
 // -------------------------------------------------------
 // Log push  (mutex-safe, callable from task or UI)
@@ -266,7 +276,8 @@ static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
 
 // -------------------------------------------------------
 // Frequency scanner — returns freq index where PONG was
-// received, or -1 if none found. Scans all frequencies.
+// received, or -1 if none found. By default scans selected frequency only;
+// full-band scan is explicit via popup.
 // -------------------------------------------------------
 #ifndef SIM_BUILD
 static int lora_scan_for_coordinator()
@@ -276,7 +287,14 @@ static int lora_scan_for_coordinator()
 
     char line[LORA_LOG_COL];
 
-    for (int i = 0; i < LORA_FREQ_COUNT; i++) {
+    bool scan_all = lora_scan_all_req;
+    lora_scan_all_req = false;
+    lora_last_scan_was_full = scan_all;
+
+    int scan_count = scan_all ? LORA_FREQ_COUNT : 1;
+
+    for (int hop = 0; hop < scan_count; hop++) {
+        int i = scan_all ? ((lora_freq_idx + hop) % LORA_FREQ_COUNT) : lora_freq_idx;
         if (!lora_screen_active) return -2;
 
         snprintf(line, sizeof(line), "Scanning %.3f MHz...", lora_freqs[i]);
@@ -370,8 +388,59 @@ static void lora_mesh_task(void *param)
             lora_rescan_req = false;
             lora_state      = LORA_DISCOVERING;
             memset(lora_coord_mac, 0, 6);
-            lora_log_push("Rescanning...");
-            lora_tracef("rescan requested");
+            if (lora_listen_only_req) {
+                lora_listen_only_active = true;
+                lora_listen_armed = false;
+                lora_listen_only_req = false;
+                lora_log_push("Listen mode enabled");
+                lora_tracef("listen mode requested");
+            } else {
+                lora_listen_only_active = false;
+                lora_listen_armed = false;
+                lora_log_push("Rescanning...");
+                lora_tracef("rescan requested");
+            }
+        }
+
+        // -----------------------------------------------
+        // LISTEN MODE: stay on selected frequency, RX-only
+        // -----------------------------------------------
+        if (lora_listen_only_active) {
+            if (!lora_listen_armed) {
+                lora_set_freq(lora_freq_idx);
+                hw_set_radio_listening();
+                char line[LORA_LOG_COL];
+                snprintf(line, sizeof(line), "Listen %.3f MHz (RX-only)", lora_freqs[lora_freq_idx]);
+                lora_log_push(line);
+                lora_tracef("listen mode armed %.3fMHz", lora_freqs[lora_freq_idx]);
+                lora_listen_armed = true;
+            }
+
+            if (lora_listen_probe_req) {
+                static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+                lora_listen_probe_req = false;
+                lora_log_push("[PROBE] Ping sent, waiting for reply...");
+                lora_tracef("listen probe ping on %.3fMHz", lora_freqs[lora_freq_idx]);
+                lora_send_ping(broadcast, true);
+            }
+
+            radio_rx_params_t rx;
+            rx.data   = rx_buf;
+            rx.length = 0;
+            hw_get_radio_rx(rx);
+
+            if (rx.length >= LORA_PKT_MIN && rx.state == 0) {
+                if (rx.length <= sizeof(MeshPacket)) {
+                    lora_process_packet((MeshPacket *)rx_buf, rx.rssi);
+                } else {
+                    char line[LORA_LOG_COL];
+                    snprintf(line, sizeof(line), "[RX] %dB rssi=%d", (int)rx.length, rx.rssi);
+                    lora_log_push(line);
+                }
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(2));
+            continue;
         }
 
         // -----------------------------------------------
@@ -406,8 +475,15 @@ static void lora_mesh_task(void *param)
 
             } else {
                 lora_state = LORA_NO_COORD;
-                lora_log_push("No coordinator found. Waiting 10s...");
-                lora_tracef("no coordinator on all frequencies");
+                if (lora_last_scan_was_full) {
+                    lora_log_push("No coordinator found on all frequencies. Waiting 10s...");
+                    lora_tracef("no coordinator on all frequencies");
+                } else {
+                    char msg[LORA_LOG_COL];
+                    snprintf(msg, sizeof(msg), "No coordinator on %.3f MHz. Waiting 10s...", lora_freqs[lora_freq_idx]);
+                    lora_log_push(msg);
+                    lora_tracef("no coordinator on selected freq %.3fMHz", lora_freqs[lora_freq_idx]);
+                }
                 vTaskDelay(pdMS_TO_TICKS(LORA_NO_COORD_WAIT_MS));
                 lora_state = LORA_DISCOVERING;  // retry
             }
@@ -477,6 +553,10 @@ static void lora_timer_cb(lv_timer_t *t)
         lora_rebuild_rows();
 
     if (lora_status_lbl) {
+        if (lora_listen_only_active) {
+            lv_label_set_text(lora_status_lbl, "Listening");
+            lv_obj_set_style_text_color(lora_status_lbl, um_col_cyan_bright(), LV_PART_MAIN);
+        } else {
         switch (lora_state) {
             case LORA_DISCOVERING: {
                 static const char *dots[] = {".", "..", "..."};
@@ -501,10 +581,17 @@ static void lora_timer_cb(lv_timer_t *t)
                 lv_obj_set_style_text_color(lora_status_lbl, um_col_err(), LV_PART_MAIN);
                 break;
         }
+        }
     }
 
     if (lora_info_lbl) {
-        if (lora_state == LORA_CONNECTED) {
+        if (lora_listen_only_active) {
+            char buf[48];
+            snprintf(buf, sizeof(buf), "Listening on %.3f MHz  (RX-only)",
+                     lora_freqs[lora_freq_idx]);
+            lv_label_set_text(lora_info_lbl, buf);
+            lv_obj_set_style_text_color(lora_info_lbl, um_col_text_dim(), LV_PART_MAIN);
+        } else if (lora_state == LORA_CONNECTED) {
             char buf[48];
             snprintf(buf, sizeof(buf), "Freq: %.3f MHz  SF12  BW125",
                      lora_freqs[lora_freq_idx]);
@@ -512,10 +599,23 @@ static void lora_timer_cb(lv_timer_t *t)
             lv_obj_set_style_text_color(lora_info_lbl, um_col_text_dim(), LV_PART_MAIN);
         } else {
             char buf[48];
-            snprintf(buf, sizeof(buf), "Scanning %.3f MHz...",
+            snprintf(buf, sizeof(buf), "Target: %.3f MHz  (popup: Scan all)",
                      lora_freqs[lora_freq_idx < LORA_FREQ_COUNT ? lora_freq_idx : 0]);
             lv_label_set_text(lora_info_lbl, buf);
             lv_obj_set_style_text_color(lora_info_lbl, um_col_text_hint(), LV_PART_MAIN);
+        }
+    }
+
+    if (lora_mode_lbl) {
+        if (lora_listen_only_active) {
+            lv_label_set_text(lora_mode_lbl, "Discovery: Listen");
+            lv_obj_set_style_text_color(lora_mode_lbl, um_col_cyan_bright(), LV_PART_MAIN);
+        } else {
+            lv_label_set_text(lora_mode_lbl,
+                              lora_last_scan_was_full ? "Discovery: Full" : "Discovery: Fixed");
+            lv_obj_set_style_text_color(lora_mode_lbl,
+                                        lora_last_scan_was_full ? um_col_warn() : um_col_ok(),
+                                        LV_PART_MAIN);
         }
     }
 }
@@ -586,8 +686,18 @@ static void lora_popup_close()
     lv_group_t *g = lv_group_get_default();
     lv_obj_del(lora_popup_cont);
     lora_popup_cont = NULL;
+    lora_popup_connect_lbl = NULL;
     if (g && lora_log_cont && lv_obj_get_child_count(lora_log_cont) > 0)
         lv_group_focus_obj(lv_obj_get_child(lora_log_cont, 0));
+}
+
+static void lora_popup_update_connect_label()
+{
+    if (!lora_popup_connect_lbl) return;
+    char txt[40];
+    snprintf(txt, sizeof(txt), LV_SYMBOL_OK "  Connect %.3f", lora_freqs[lora_freq_idx]);
+    lv_label_set_text(lora_popup_connect_lbl, txt);
+    lv_obj_center(lora_popup_connect_lbl);
 }
 
 static void lora_popup_open()
@@ -604,7 +714,7 @@ static void lora_popup_open()
     }
 
     lora_popup_cont = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(lora_popup_cont, 260, 178);
+    lv_obj_set_size(lora_popup_cont, 260, 190);
     lv_obj_center(lora_popup_cont);
     lv_obj_set_style_bg_color(lora_popup_cont, um_col_surface(), LV_PART_MAIN);
     lv_obj_set_style_border_color(lora_popup_cont, um_col_border_focus(), LV_PART_MAIN);
@@ -624,9 +734,9 @@ static void lora_popup_open()
     lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
-    // Start-frequency hint (scan will begin here)
+    // Selected frequency for default fixed-frequency discovery.
     lv_obj_t *freq_lbl = lv_label_create(lora_popup_cont);
-    lv_label_set_text(freq_lbl, "Scan start frequency:");
+    lv_label_set_text(freq_lbl, "Default frequency:");
     lv_obj_set_style_text_color(freq_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_set_width(freq_lbl, lv_pct(100));
 
@@ -641,36 +751,103 @@ static void lora_popup_open()
     lv_obj_add_event_cb(dd, [](lv_event_t *e) {
         lv_obj_t *obj = (lv_obj_t *)lv_event_get_target(e);
         lora_freq_idx = (int)lv_dropdown_get_selected(obj);
+        lora_popup_update_connect_label();
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
-    // Button row: Rescan + Cancel
+    // Button row: Connect selected + Listen + Probe + Scan all + Cancel
     lv_obj_t *btn_row = lv_obj_create(lora_popup_cont);
     lv_obj_set_width(btn_row, lv_pct(100));
     lv_obj_set_height(btn_row, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(btn_row, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(btn_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(btn_row, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_column(btn_row, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(btn_row, 6, LV_PART_MAIN);
     lv_obj_clear_flag(btn_row, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
+    lv_obj_t *connect_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(connect_btn, 1);
+    lv_obj_set_style_bg_color(connect_btn, UM_COL(0,50,70, 200,225,242), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(connect_btn, um_col_focus_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(connect_btn, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(connect_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(connect_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(connect_btn, 6, LV_PART_MAIN);
+    lv_obj_add_event_cb(connect_btn, [](lv_event_t *e) {
+        lora_rescan_req = true;
+        lora_scan_all_req = false;
+        lora_listen_only_req = false;
+        lora_listen_only_active = false;
+        lora_listen_probe_req = false;
+        lora_listen_armed = false;
+        lora_popup_close();
+    }, LV_EVENT_CLICKED, NULL);
+    lora_popup_connect_lbl = lv_label_create(connect_btn);
+    lv_obj_set_style_text_color(lora_popup_connect_lbl, um_col_cyan_bright(), LV_PART_MAIN);
+    lora_popup_update_connect_label();
+
+    lv_obj_t *listen_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(listen_btn, 1);
+    lv_obj_set_style_bg_color(listen_btn, UM_COL(0,45,35, 180,235,220), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(listen_btn, um_col_focus_green(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(listen_btn, um_col_border(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(listen_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(listen_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(listen_btn, 6, LV_PART_MAIN);
+    lv_obj_add_event_cb(listen_btn, [](lv_event_t *e) {
+        lora_rescan_req = true;
+        lora_scan_all_req = false;
+        lora_listen_only_req = true;
+        lora_popup_close();
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *listen_lbl = lv_label_create(listen_btn);
+    lv_label_set_text(listen_lbl, LV_SYMBOL_EYE_OPEN "  Listen");
+    lv_obj_set_style_text_color(listen_lbl, um_col_ok(), LV_PART_MAIN);
+    lv_obj_center(listen_lbl);
+
+    lv_obj_t *probe_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(probe_btn, 1);
+    lv_obj_set_style_bg_color(probe_btn, UM_COL(30,20,0, 245,220,150), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(probe_btn, um_col_focus_green(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(probe_btn, um_col_border(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(probe_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(probe_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(probe_btn, 6, LV_PART_MAIN);
+    lv_obj_add_event_cb(probe_btn, [](lv_event_t *e) {
+        lora_rescan_req = true;
+        lora_scan_all_req = false;
+        lora_listen_only_req = true;
+        lora_listen_probe_req = true;
+        lora_popup_close();
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *probe_lbl = lv_label_create(probe_btn);
+    lv_label_set_text(probe_lbl, LV_SYMBOL_UPLOAD "  Probe");
+    lv_obj_set_style_text_color(probe_lbl, um_col_warn(), LV_PART_MAIN);
+    lv_obj_center(probe_lbl);
+
     lv_obj_t *scan_btn = lv_btn_create(btn_row);
     lv_obj_set_flex_grow(scan_btn, 1);
-    lv_obj_set_style_bg_color(scan_btn, UM_COL(0,50,70, 200,225,242), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(scan_btn, um_col_focus_cyan(),
+    lv_obj_set_style_bg_color(scan_btn, UM_COL(40,35,0, 242,225,170), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(scan_btn, um_col_focus_green(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(scan_btn, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(scan_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(scan_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(scan_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(scan_btn, 6, LV_PART_MAIN);
     lv_obj_add_event_cb(scan_btn, [](lv_event_t *e) {
         lora_rescan_req = true;
+        lora_scan_all_req = true;
+        lora_listen_only_req = false;
+        lora_listen_probe_req = false;
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *scan_lbl = lv_label_create(scan_btn);
-    lv_label_set_text(scan_lbl, LV_SYMBOL_REFRESH "  Rescan");
-    lv_obj_set_style_text_color(scan_lbl, um_col_cyan_bright(), LV_PART_MAIN);
+    lv_label_set_text(scan_lbl, LV_SYMBOL_REFRESH "  Scan all bands");
+    lv_obj_set_style_text_color(scan_lbl, um_col_warn(), LV_PART_MAIN);
     lv_obj_center(scan_lbl);
 
     lv_obj_t *cancel_btn = lv_btn_create(btn_row);
@@ -691,9 +868,12 @@ static void lora_popup_open()
     lv_group_t *g = lv_group_get_default();
     if (g) {
         lv_group_add_obj(g, dd);
+        lv_group_add_obj(g, connect_btn);
+        lv_group_add_obj(g, listen_btn);
+        lv_group_add_obj(g, probe_btn);
         lv_group_add_obj(g, scan_btn);
         lv_group_add_obj(g, cancel_btn);
-        lv_group_focus_obj(scan_btn);
+        lv_group_focus_obj(connect_btn);
     }
 }
 
@@ -742,6 +922,11 @@ void um_lora_create()
         hw_radio_begin();
         lora_state      = LORA_DISCOVERING;
         lora_rescan_req = false;
+        lora_scan_all_req = false;
+        lora_listen_only_req = false;
+        lora_listen_only_active = false;
+        lora_listen_probe_req = false;
+        lora_listen_armed = false;
         memset(lora_coord_mac, 0, 6);
         lora_logHead   = 0;
         lora_logCount  = 0;
@@ -750,11 +935,21 @@ void um_lora_create()
         // Re-entering screen after hidden state: if not connected, force a fresh discovery pass.
         if (lora_state != LORA_CONNECTED) {
             lora_rescan_req = true;
+            lora_scan_all_req = false;
+            lora_listen_only_req = false;
+            lora_listen_only_active = false;
+            lora_listen_probe_req = false;
+            lora_listen_armed = false;
         }
     }
 #else
     lora_state      = LORA_DISCOVERING;
     lora_rescan_req = false;
+    lora_scan_all_req = false;
+    lora_listen_only_req = false;
+    lora_listen_only_active = false;
+    lora_listen_probe_req = false;
+    lora_listen_armed = false;
     memset(lora_coord_mac, 0, 6);
     lora_logHead   = 0;
     lora_logCount  = 0;
@@ -828,6 +1023,12 @@ void um_lora_create()
     lv_obj_set_style_text_color(lora_info_lbl, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_width(lora_info_lbl, lv_pct(100));
 
+    // --- Discovery mode badge ---
+    lora_mode_lbl = lv_label_create(lora_root);
+    lv_label_set_text(lora_mode_lbl, "Discovery: Fixed");
+    lv_obj_set_style_text_color(lora_mode_lbl, um_col_ok(), LV_PART_MAIN);
+    lv_obj_set_width(lora_mode_lbl, lv_pct(100));
+
     // --- Divider ---
     lv_obj_t *div2 = lv_obj_create(lora_root);
     lv_obj_set_size(div2, lv_pct(100), 1);
@@ -883,6 +1084,7 @@ void um_lora_destroy()
     lora_root       = NULL;
     lora_status_lbl = NULL;
     lora_info_lbl   = NULL;
+    lora_mode_lbl   = NULL;
     lora_log_cont   = NULL;
 
 #ifndef SIM_BUILD

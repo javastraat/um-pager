@@ -57,6 +57,10 @@ int16_t hw_set_radio_params(radio_params_t &params) {
     state = radio.setSpreadingFactor(params.sf);
     state = radio.setCodingRate(params.cr);
     state = radio.setSyncWord(params.syncWord);
+    // Align framing with coordinator RadioLib begin(...): explicit header, CRC on, preamble 8.
+    state = radio.explicitHeader();
+    state = radio.setCRC(true);
+    state = radio.setPreambleLength(8);
     bool highFreq = false;
     if (params.freq >= 2400 && params.power > 13) {
         params.power = 13;
@@ -149,8 +153,25 @@ void hw_set_radio_tx(radio_tx_params_t &params, bool continuous) {
         pdMS_TO_TICKS(5000)
     );
     if ((txDone & LORA_ISR_TX_FLAG) != LORA_ISR_TX_FLAG) {
-        params.state = -2;
-        Serial.printf("[LORA-HAL] transmit timeout len=%u\n", (unsigned)params.length);
+        // Some LR1121 firmware/driver paths occasionally miss the TX-done callback.
+        // Fall back to blocking transmit so discovery and heartbeat continue working.
+        Serial.printf("[LORA-HAL] transmit timeout len=%u, fallback blocking TX\n", (unsigned)params.length);
+
+        instance.lockSPI();
+        (void)radio.finishTransmit();
+        (void)radio.standby();
+        int16_t fb = radio.transmit(params.data, params.length);
+        instance.unlockSPI();
+
+        if (fb != RADIOLIB_ERR_NONE) {
+            params.state = -2;
+            Serial.printf("[LORA-HAL] fallback transmit failed st=%d len=%u\n", (int)fb, (unsigned)params.length);
+            return;
+        }
+
+        params.state = RADIOLIB_ERR_NONE;
+        last_send_millis = millis();
+        Serial.println("[LORA-HAL] fallback transmit ok");
         return;
     }
 
@@ -164,16 +185,25 @@ void hw_set_radio_tx(radio_tx_params_t &params, bool continuous) {
 
 void hw_get_radio_rx(radio_rx_params_t &params) {
     EventBits_t eventBits = xEventGroupWaitBits(radioEvent, LORA_ISR_RX_FLAG, pdTRUE, pdTRUE, pdTICKS_TO_MS(2));
-    if ((eventBits & LORA_ISR_RX_FLAG) != LORA_ISR_RX_FLAG) {
-        params.state = -1;
-        return;
-    }
     if (!params.data) {
         params.state = -1;
         return;
     }
+
+    bool irq_rx = ((eventBits & LORA_ISR_RX_FLAG) == LORA_ISR_RX_FLAG);
+
     instance.lockSPI();
-    params.length = radio.getPacketLength();
+
+    // Some LR1121 callback paths can miss RX IRQ notifications under load.
+    // If no IRQ was seen, use packet-length polling as a fallback.
+    size_t polledLen = radio.getPacketLength();
+    if (!irq_rx && polledLen == 0) {
+        instance.unlockSPI();
+        params.state = -1;
+        return;
+    }
+
+    params.length = polledLen;
     params.state = radio.readData(params.data, params.length);
     params.rssi = radio.getRSSI();
     params.snr = radio.getSNR();
