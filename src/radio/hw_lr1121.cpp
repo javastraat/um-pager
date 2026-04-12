@@ -34,6 +34,8 @@ int16_t hw_set_radio_params(radio_params_t &params) {
     int16_t state = 0;
     instance.lockSPI();
     instance.initLoRa();
+    // Re-register TX ISR — initLoRa() resets all RadioLib callbacks
+    radio.setPacketSentAction(hw_radio_isr);
     state = radio.setFrequency(params.freq);
     state = radio.setBandwidth(params.bandwidth);
     state = radio.setSpreadingFactor(params.sf);
@@ -104,6 +106,7 @@ void hw_set_radio_tx(radio_tx_params_t &params, bool continuous) {
         return;
     }
     instance.lockSPI();
+    radio.standby();   // LR1121 requires explicit standby before TX (same as coordinator)
     params.state = radio.startTransmit(params.data, params.length);
     instance.unlockSPI();
 }
