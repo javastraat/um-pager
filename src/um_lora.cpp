@@ -5,6 +5,7 @@
 #include <LV_Helper.h>
 #include <lvgl.h>
 #include <esp_mac.h>
+#include <stdarg.h>
 #include "um_nav.h"
 #include "um_theme.h"
 #include "config.h"
@@ -79,9 +80,23 @@ static uint8_t     lora_dot_phase  = 0;
 #define LORA_NO_COORD_WAIT_MS 10000UL   // pause before retry after full scan fails
 #define LORA_HB_INTERVAL      UM_HB_INTERVAL
 #define LORA_TEMP_INTERVAL    UM_TEMP_INTERVAL
+#define LORA_DISCOVERY_PINGS_PER_FREQ 3
+#define LORA_DISCOVERY_PING_GAP_MS    120
 
 // Minimum valid wire-format MeshPacket size (header only, no payload)
 #define LORA_PKT_MIN  (1+1+4+6+6+1+1)  // type+ttl+msgId+dest+src+appId+payloadLen = 20
+
+static void lora_tracef(const char *fmt, ...)
+{
+#ifndef SIM_BUILD
+    char msg[160];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(msg, sizeof(msg), fmt, args);
+    va_end(args);
+    Serial.printf("[LORA] %s\n", msg);
+#endif
+}
 
 // Forward declarations
 static void lora_popup_close();
@@ -120,9 +135,10 @@ static void lora_set_freq(int idx)
     p.sf        = 12;
     p.cr        = 5;
     p.syncWord  = 0xCD;
-    p.power     = 22;
+    p.power     = 14; // match coordinator default for reliable link budget and legal baseline
     p.mode      = RADIO_RX;
-    hw_set_radio_params(p);
+    int16_t st = hw_set_radio_params(p);
+    lora_tracef("set_freq %.3fMHz state=%d", p.freq, (int)st);
 #endif
 }
 
@@ -136,11 +152,17 @@ static void lora_tx_packet(MeshPacket *pkt)
     radio_tx_params_t tx;
     tx.data   = (uint8_t *)pkt;
     tx.length = wire_len;
+    lora_tracef("TX type=0x%02X app=0x%02X len=%u dst=%02X:%02X src=%02X:%02X",
+                pkt->type, pkt->appId, (unsigned)wire_len,
+                pkt->destMac[4], pkt->destMac[5], pkt->srcMac[4], pkt->srcMac[5]);
     hw_set_radio_tx(tx, false);
     if (tx.state != 0) {
         char line[LORA_LOG_COL];
         snprintf(line, sizeof(line), "[TX] failed state=%d", tx.state);
         lora_log_push(line);
+        lora_tracef("TX failed state=%d", tx.state);
+    } else {
+        lora_tracef("TX ok");
     }
     // TX is blocking in the HAL; return to RX immediately.
     hw_set_radio_listening();
@@ -255,13 +277,16 @@ static int lora_scan_for_coordinator()
     char line[LORA_LOG_COL];
 
     for (int i = 0; i < LORA_FREQ_COUNT; i++) {
+        if (!lora_screen_active) return -2;
+
         snprintf(line, sizeof(line), "Scanning %.3f MHz...", lora_freqs[i]);
         lora_log_push(line);
+        lora_tracef("scan hop %.3fMHz", lora_freqs[i]);
 
         lora_set_freq(i);
         hw_set_radio_listening();
 
-        // Send PING broadcast on this frequency
+        // Send several discovery PINGs to reduce single-shot miss chance.
         MeshPacket ping = {};
         ping.type       = MESH_TYPE_PING;
         ping.ttl        = 4;
@@ -271,11 +296,19 @@ static int lora_scan_for_coordinator()
         ping.appId      = 0x00;
         ping.payloadLen = (uint8_t)strlen(NODE_NAME);
         memcpy(ping.payload, NODE_NAME, ping.payloadLen);
-        lora_tx_packet(&ping);  // TX + wait airtime + re-arm RX
+        for (int attempt = 0; attempt < LORA_DISCOVERY_PINGS_PER_FREQ; ++attempt) {
+            if (!lora_screen_active) return -2;
+            ping.msgId = esp_random() % 1000000000u;
+            lora_tracef("discovery ping %d/%d", attempt + 1, LORA_DISCOVERY_PINGS_PER_FREQ);
+            lora_tx_packet(&ping);
+            vTaskDelay(pdMS_TO_TICKS(LORA_DISCOVERY_PING_GAP_MS));
+        }
 
         // Listen for PONG on this frequency
         unsigned long deadline = (unsigned long)(millis()) + LORA_PONG_WAIT_MS;
         while ((unsigned long)(millis()) < deadline) {
+            if (!lora_screen_active) return -2;
+
             radio_rx_params_t rx;
             rx.data   = rx_buf;
             rx.length = 0;
@@ -288,6 +321,7 @@ static int lora_scan_for_coordinator()
                              "[PONG] Coord found on %.3f MHz  %02X:%02X",
                              lora_freqs[i], pkt->srcMac[4], pkt->srcMac[5]);
                     lora_log_push(line);
+                    lora_tracef("PONG found %.3fMHz from %02X:%02X", lora_freqs[i], pkt->srcMac[4], pkt->srcMac[5]);
                     memcpy(lora_coord_mac, pkt->srcMac, 6);
                     return i;
                 }
@@ -317,17 +351,27 @@ static void lora_mesh_task(void *param)
              lora_my_mac[3], lora_my_mac[4], lora_my_mac[5]);
     lora_log_push(mac_line);
     lora_log_push("Scanning frequencies for coordinator...");
+    lora_tracef("task start mac=%02X:%02X:%02X:%02X:%02X:%02X",
+                lora_my_mac[0], lora_my_mac[1], lora_my_mac[2],
+                lora_my_mac[3], lora_my_mac[4], lora_my_mac[5]);
 
     unsigned long last_hb   = 0;
     unsigned long last_temp = 0;
 
     for (;;) {
+        // Do not run discovery / TX loops while the LoRa screen is hidden.
+        if (!lora_screen_active) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
+
         // Handle rescan request from UI options popup
         if (lora_rescan_req) {
             lora_rescan_req = false;
             lora_state      = LORA_DISCOVERING;
             memset(lora_coord_mac, 0, 6);
             lora_log_push("Rescanning...");
+            lora_tracef("rescan requested");
         }
 
         // -----------------------------------------------
@@ -335,6 +379,13 @@ static void lora_mesh_task(void *param)
         // -----------------------------------------------
         if (lora_state == LORA_DISCOVERING) {
             int found_idx = lora_scan_for_coordinator();
+
+            if (found_idx == -2) {
+                lora_log_push("Scan paused");
+                lora_tracef("scan paused (screen hidden)");
+                vTaskDelay(pdMS_TO_TICKS(50));
+                continue;
+            }
 
             if (found_idx >= 0) {
                 lora_freq_idx = found_idx;
@@ -345,6 +396,10 @@ static void lora_mesh_task(void *param)
                 uint8_t nm = (uint8_t)strlen(NODE_NAME);   // DATA appId 0x06 = node name
                 lora_send_data(0x06, (const uint8_t *)NODE_NAME, nm);
                 lora_log_push("Announced. Listening...");
+                lora_tracef("connected freq=%.3fMHz coord=%02X:%02X:%02X:%02X:%02X:%02X",
+                            lora_freqs[lora_freq_idx],
+                            lora_coord_mac[0], lora_coord_mac[1], lora_coord_mac[2],
+                            lora_coord_mac[3], lora_coord_mac[4], lora_coord_mac[5]);
 
                 last_hb   = (unsigned long)(millis()) - LORA_HB_INTERVAL;
                 last_temp = (unsigned long)(millis()) - LORA_TEMP_INTERVAL;
@@ -352,6 +407,7 @@ static void lora_mesh_task(void *param)
             } else {
                 lora_state = LORA_NO_COORD;
                 lora_log_push("No coordinator found. Waiting 10s...");
+                lora_tracef("no coordinator on all frequencies");
                 vTaskDelay(pdMS_TO_TICKS(LORA_NO_COORD_WAIT_MS));
                 lora_state = LORA_DISCOVERING;  // retry
             }
@@ -673,6 +729,7 @@ void um_lora_create()
 {
 #ifndef SIM_BUILD
     lora_screen_active = true;
+    lora_tracef("screen enter");
 #endif
 
     lora_dot_phase = 0;
@@ -689,6 +746,11 @@ void um_lora_create()
         lora_logHead   = 0;
         lora_logCount  = 0;
         lora_log_dirty = false;
+    } else {
+        // Re-entering screen after hidden state: if not connected, force a fresh discovery pass.
+        if (lora_state != LORA_CONNECTED) {
+            lora_rescan_req = true;
+        }
     }
 #else
     lora_state      = LORA_DISCOVERING;
@@ -807,6 +869,7 @@ void um_lora_destroy()
 
 #ifndef SIM_BUILD
     lora_screen_active = false;
+    lora_tracef("screen exit");
 #endif
 
     if (lora_timer)      { lv_timer_del(lora_timer);      lora_timer      = NULL; }
