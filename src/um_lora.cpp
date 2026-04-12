@@ -359,7 +359,7 @@ static void lora_mesh_task(void *param)
             // Heartbeat: appId 0x05 (ping) + 0x06 (node name)
             if (now - last_hb >= LORA_HB_INTERVAL) {
                 last_hb = now;
-                uint8_t hb = 0x01;
+                uint8_t hb = '1';
                 lora_send_data(0x05, &hb, 1);
                 lora_send_data(0x06, (const uint8_t *)NODE_NAME, (uint8_t)strlen(NODE_NAME));
                 lora_log_push("[HB] Heartbeat sent");
