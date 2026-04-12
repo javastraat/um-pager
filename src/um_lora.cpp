@@ -54,6 +54,8 @@ static bool    lora_log_dirty = false;
 #ifndef SIM_BUILD
 static SemaphoreHandle_t lora_mutex = NULL;
 static TaskHandle_t      lora_task  = NULL;
+static bool              lora_started = false;
+static volatile bool     lora_screen_active = false;
 #endif
 
 // -------------------------------------------------------
@@ -399,7 +401,8 @@ static void lora_mesh_task(void *param)
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(2));
+        // Keep LoRa responsive while screen is visible; back off when hidden.
+        vTaskDelay(pdMS_TO_TICKS(lora_screen_active ? 2 : 250));
     }
 }
 #endif
@@ -664,17 +667,32 @@ static void lora_key_bsp_cb(lv_event_t *e)
 void um_lora_create()
 {
 #ifndef SIM_BUILD
-    if (!lora_mutex) lora_mutex = xSemaphoreCreateMutex();
-    hw_radio_begin();
+    lora_screen_active = true;
 #endif
 
+    lora_dot_phase = 0;
+
+#ifndef SIM_BUILD
+    // Match mesh screen lifecycle: initialize/start once, then keep task alive.
+    if (!lora_started) {
+        lora_started = true;
+        if (!lora_mutex) lora_mutex = xSemaphoreCreateMutex();
+        hw_radio_begin();
+        lora_state      = LORA_DISCOVERING;
+        lora_rescan_req = false;
+        memset(lora_coord_mac, 0, 6);
+        lora_logHead   = 0;
+        lora_logCount  = 0;
+        lora_log_dirty = false;
+    }
+#else
     lora_state      = LORA_DISCOVERING;
     lora_rescan_req = false;
-    lora_dot_phase  = 0;
     memset(lora_coord_mac, 0, 6);
     lora_logHead   = 0;
     lora_logCount  = 0;
     lora_log_dirty = false;
+#endif
 
     // --- Root container ---
     lora_root = lv_obj_create(lv_scr_act());
@@ -782,6 +800,10 @@ void um_lora_destroy()
 {
     if (!lora_root) return;
 
+#ifndef SIM_BUILD
+    lora_screen_active = false;
+#endif
+
     if (lora_timer)      { lv_timer_del(lora_timer);      lora_timer      = NULL; }
     if (lora_bsp_timer)  { lv_timer_del(lora_bsp_timer);  lora_bsp_timer  = NULL; }
     if (lora_popup_cont) { lv_obj_del(lora_popup_cont);   lora_popup_cont = NULL; }
@@ -796,6 +818,6 @@ void um_lora_destroy()
     lora_log_cont   = NULL;
 
 #ifndef SIM_BUILD
-    if (lora_task) { vTaskDelete(lora_task); lora_task = NULL; }
+    // Keep LoRa task/radio alive so behavior matches mesh screen lifecycle.
 #endif
 }
