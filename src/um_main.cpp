@@ -8,6 +8,7 @@
 #include "um_nav.h"
 #include "um_shared.h"
 #include "helpers/um_storage.h"
+#include "helpers/um_haptic.h"
 
 // Defaults — settings screen writes these at runtime
 volatile uint32_t   um_sleep_timeout_ms = UM_DEFAULT_SLEEP_TIMEOUT_MS;
@@ -39,17 +40,11 @@ void setup()
         while ((indev = lv_indev_get_next(indev)) != NULL) {
             lv_indev_set_group(indev, g);
         }
+        // Haptic: light tick whenever focus moves (encoder rotate)
+        lv_group_set_focus_cb(g, [](lv_group_t *) {
+            um_haptic_navigate();
+        });
     }
-
-#ifndef SIM_BUILD
-    // Haptic feedback via the built-in LilyGo feedback path (wired in LV_Helper_v9
-    // lv_encoder_read: fires on every rotate + button press).
-    // effect 6  = Sharp Click 30%  — light navigate tick
-    // effect 1  = Strong Click 100% — firm select bump
-    // We use a single moderate effect (4 = Sharp Click 100%) for both since
-    // the encoder read callback can't distinguish rotate from press.
-    instance.attachKeyboardFeedback(true, 4);  // Sharp Click 100%
-#endif
 
     // Load persisted settings before the UI reads any of these values
     um_settings_load();

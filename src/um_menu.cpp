@@ -6,6 +6,7 @@
 #include "um_nav.h"
 #include "um_shared.h"
 #include "config.h"
+#include "helpers/um_haptic.h"
 
 // Logo image descriptor defined in um_welcome.cpp
 extern const lv_image_dsc_t um_logo_dsc;
@@ -119,6 +120,7 @@ static void menu_tile_key_cb(lv_event_t *e)
         lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
         lv_event_stop_processing(e); // prevent LVGL group from also advancing focus
     } else if (key == LV_KEY_ENTER) {
+        um_haptic_select();
         um_nav_go(TILES[menu_focused].target);
         lv_event_stop_processing(e);
     }
