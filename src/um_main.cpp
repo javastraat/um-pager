@@ -3,7 +3,7 @@
 #include <LV_Helper.h>
 #include <lvgl.h>
 #include "config.h"
-#include "ota_update.h"
+#include "helpers/ota_update.h"
 #include "helpers/fw_download.h"
 #include "um_nav.h"
 #include "um_shared.h"
