@@ -24,18 +24,32 @@ static void hw_radio_isr() {
     }
 }
 
+static void hw_radio_rx_isr() {
+    BaseType_t xHigherPriorityTaskWoken, xResult;
+    xHigherPriorityTaskWoken = pdFALSE;
+    xResult = xEventGroupSetBitsFromISR(
+        radioEvent,
+        LORA_ISR_FLAG,
+        &xHigherPriorityTaskWoken);
+    if (xResult == pdPASS) {
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    }
+}
+
 void hw_radio_begin() {
     radioEvent = xEventGroupCreate();
-    // Radio register isr event
+    // Register both TX and RX callbacks so polling sees packet arrivals too.
     radio.setPacketSentAction(hw_radio_isr);
+    radio.setPacketReceivedAction(hw_radio_rx_isr);
 }
 
 int16_t hw_set_radio_params(radio_params_t &params) {
     int16_t state = 0;
     instance.lockSPI();
     instance.initLoRa();
-    // Re-register TX ISR — initLoRa() resets all RadioLib callbacks
+    // initLoRa() resets RadioLib callbacks, so restore both ISR hooks.
     radio.setPacketSentAction(hw_radio_isr);
+    radio.setPacketReceivedAction(hw_radio_rx_isr);
     state = radio.setFrequency(params.freq);
     state = radio.setBandwidth(params.bandwidth);
     state = radio.setSpreadingFactor(params.sf);
