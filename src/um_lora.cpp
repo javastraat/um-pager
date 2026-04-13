@@ -69,7 +69,7 @@ static lv_timer_t *lora_bsp_timer  = NULL;
 #define LORA_UI_TIMER_MS        250
 
 // Timing
-#define LORA_TX_AIRTIME_MS     1600UL   // conservative SF12/BW125 packet airtime
+#define LORA_TX_AIRTIME_MS     4000UL   // SF12/BW125 worst-case ~2s + margin
 
 // Minimum valid wire-format MeshPacket size (header only, no payload)
 #define LORA_PKT_MIN  (1+1+4+6+6+1+1)  // type+ttl+msgId+dest+src+appId+payloadLen = 20
@@ -136,13 +136,14 @@ static void lora_tx_packet(MeshPacket *pkt)
     tx.length = wire_len;
     hw_set_radio_tx(tx, false);
 
-    snprintf(dbg, sizeof(dbg), "[TX] state=%d waiting airtime", tx.state);
+    snprintf(dbg, sizeof(dbg), "[TX] state=%d waiting done", tx.state);
     lora_log_push(dbg);
     Serial.printf("[LoRa TX] state=%d\n", tx.state);
 
-    vTaskDelay(pdMS_TO_TICKS(LORA_TX_AIRTIME_MS));
-    lora_log_push("[TX] Done, listening");
-    Serial.println("[LoRa TX] Done, re-arming RX");
+    bool done = hw_wait_tx_done(LORA_TX_AIRTIME_MS);
+    snprintf(dbg, sizeof(dbg), "[TX] %s, listening", done ? "ISR done" : "timeout");
+    lora_log_push(dbg);
+    Serial.printf("[LoRa TX] %s, re-arming RX\n", done ? "ISR done" : "timeout");
     hw_set_radio_listening();
 #endif
 }

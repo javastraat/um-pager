@@ -49,3 +49,5 @@ void hw_set_radio_default();
 void hw_set_radio_listening();
 void hw_set_radio_tx(radio_tx_params_t &params, bool continuous);
 void hw_get_radio_rx(radio_rx_params_t &params);
+void hw_radio_begin();
+bool hw_wait_tx_done(uint32_t timeout_ms);   // blocks until TX-done ISR or timeout

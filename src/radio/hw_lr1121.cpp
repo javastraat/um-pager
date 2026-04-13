@@ -92,6 +92,13 @@ void hw_set_radio_listening() {
     instance.unlockSPI();
 }
 
+bool hw_wait_tx_done(uint32_t timeout_ms) {
+    EventBits_t bits = xEventGroupWaitBits(
+        radioEvent, LORA_ISR_FLAG, pdTRUE, pdTRUE,
+        pdMS_TO_TICKS(timeout_ms));
+    return (bits & LORA_ISR_FLAG) != 0;
+}
+
 void hw_set_radio_tx(radio_tx_params_t &params, bool continuous) {
     if (continuous) {
         EventBits_t eventBits = xEventGroupWaitBits(radioEvent, LORA_ISR_FLAG, pdTRUE, pdTRUE, pdTICKS_TO_MS(2));
