@@ -1,54 +1,64 @@
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
 #include <lvgl.h>
+#include <esp_mac.h>
 #include "um_nav.h"
 #include "um_theme.h"
+#include "config.h"
+#include "UniversalMesh.h"          // MeshPacket struct + packet type constants
 #include "radio/hal_interface.h"
 #include "radio/hw_lr1121.h"
 
-// --- LoRa config ---
-static radio_params_t lora_params;
+#ifndef SIM_BUILD
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
+#endif
 
+// -------------------------------------------------------
+// LoRa frequencies to scan (EU, US, Asia, 2.4GHz)
+// -------------------------------------------------------
 static const float lora_freqs[] = {
-    868.0,   // EU
-    868.3,   // EU
-    868.8,   // EU
-    902.0,   // US
-    903.0,   // US
-    904.6,   // US
-    915.0,   // US/AU
-    920.0,   // Korea
-    923.0,   // Asia
-    928.0,   // US/Asia
-    950.0,   // Japan
-    960.0,   // Upper sub-GHz
-    2400.0,  // 2.4GHz LoRa
-    2425.0,
-    2450.0,
-    2475.0,
-    2483.5
+    868.0, 868.3, 868.8,
+    902.0, 903.0, 904.6,
+    915.0, 920.0, 923.0, 928.0,
+    950.0, 960.0,
+    2400.0, 2425.0, 2450.0, 2475.0, 2483.5
 };
-static const int lora_freq_count = (int)(sizeof(lora_freqs) / sizeof(lora_freqs[0]));
-static int lora_freq_idx = 0;  // Default: 868.0 MHz
+static const int LORA_FREQ_COUNT = (int)(sizeof(lora_freqs) / sizeof(lora_freqs[0]));
+static int lora_freq_idx = 0;       // index of active/connected frequency
 
-// --- Log buffer ---
+// -------------------------------------------------------
+// Mesh state
+// -------------------------------------------------------
+enum LoraState { LORA_DISCOVERING, LORA_CONNECTED, LORA_NO_COORD };
+static volatile LoraState lora_state   = LORA_DISCOVERING;
+static uint8_t lora_my_mac[6]         = {};
+static uint8_t lora_coord_mac[6]      = {};
+static volatile bool lora_rescan_req  = false;
+
+// -------------------------------------------------------
+// Log buffer
+// -------------------------------------------------------
 #define LORA_LOG_ROWS 32
 #define LORA_LOG_COL  80
 
 static char    lora_log[LORA_LOG_ROWS][LORA_LOG_COL] = {};
-static uint8_t lora_logHead  = 0;
-static uint8_t lora_logCount = 0;
+static uint8_t lora_logHead   = 0;
+static uint8_t lora_logCount  = 0;
 static bool    lora_log_dirty = false;
 
 #ifndef SIM_BUILD
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
 static SemaphoreHandle_t lora_mutex = NULL;
+static TaskHandle_t      lora_task  = NULL;
 #endif
 
-// --- LVGL state ---
+// -------------------------------------------------------
+// LVGL state
+// -------------------------------------------------------
 static lv_obj_t   *lora_root       = NULL;
 static lv_obj_t   *lora_status_lbl = NULL;
 static lv_obj_t   *lora_info_lbl   = NULL;
@@ -56,9 +66,20 @@ static lv_obj_t   *lora_log_cont   = NULL;
 static lv_obj_t   *lora_popup_cont = NULL;
 static lv_timer_t *lora_timer      = NULL;
 static lv_timer_t *lora_bsp_timer  = NULL;
+static uint8_t     lora_dot_phase  = 0;
 
 #define LORA_BSP_LONG_PRESS_MS  600
-#define LORA_UI_TIMER_MS        200
+#define LORA_UI_TIMER_MS        250
+
+// Timing
+#define LORA_TX_AIRTIME_MS     1600UL   // conservative SF12/BW125 packet airtime
+#define LORA_PONG_WAIT_MS      4000UL   // how long to listen for PONG per frequency
+#define LORA_NO_COORD_WAIT_MS 10000UL   // pause before retry after full scan fails
+#define LORA_HB_INTERVAL      UM_HB_INTERVAL
+#define LORA_TEMP_INTERVAL    UM_TEMP_INTERVAL
+
+// Minimum valid wire-format MeshPacket size (header only, no payload)
+#define LORA_PKT_MIN  (1+1+4+6+6+1+1)  // type+ttl+msgId+dest+src+appId+payloadLen = 20
 
 // Forward declarations
 static void lora_popup_close();
@@ -67,13 +88,13 @@ static void lora_key_bsp_cb(lv_event_t *e);
 static void lora_rebuild_rows();
 
 // -------------------------------------------------------
-// Log helpers
+// Log push  (mutex-safe, callable from task or UI)
 // -------------------------------------------------------
 static void lora_log_push(const char *line)
 {
 #ifndef SIM_BUILD
     if (!lora_mutex) return;
-    if (xSemaphoreTake(lora_mutex, pdMS_TO_TICKS(10)) != pdTRUE) return;
+    if (xSemaphoreTake(lora_mutex, pdMS_TO_TICKS(20)) != pdTRUE) return;
 #endif
     strncpy(lora_log[lora_logHead], line, LORA_LOG_COL - 1);
     lora_log[lora_logHead][LORA_LOG_COL - 1] = '\0';
@@ -86,77 +107,357 @@ static void lora_log_push(const char *line)
 }
 
 // -------------------------------------------------------
-// Radio setup
+// Radio helpers
 // -------------------------------------------------------
-static void lora_set_radio_params()
+static void lora_set_freq(int idx)
 {
-    lora_params.freq      = lora_freqs[lora_freq_idx];
-    lora_params.bandwidth = 125.0;
-    lora_params.sf        = 12;
-    lora_params.cr        = 5;
-    lora_params.syncWord  = 0xCD;
-    lora_params.power     = 22;
-    lora_params.mode      = RADIO_RX;
 #ifndef SIM_BUILD
-    hw_set_radio_params(lora_params);
+    radio_params_t p;
+    p.freq      = lora_freqs[idx];
+    p.bandwidth = 125.0f;
+    p.sf        = 12;
+    p.cr        = 5;
+    p.syncWord  = 0xCD;
+    p.power     = 22;
+    p.mode      = RADIO_RX;
+    hw_set_radio_params(p);
 #endif
 }
 
-static void lora_start_receive()
+// Transmit a MeshPacket, then re-arm RX. Call only from the radio task.
+static void lora_tx_packet(MeshPacket *pkt)
 {
 #ifndef SIM_BUILD
-    hw_set_radio_listening();
+    size_t wire_len = LORA_PKT_MIN + pkt->payloadLen;
+    if (wire_len > sizeof(MeshPacket)) wire_len = sizeof(MeshPacket);
+
+    radio_tx_params_t tx;
+    tx.data   = (uint8_t *)pkt;
+    tx.length = wire_len;
+    hw_set_radio_tx(tx, false);                       // starts TX async
+    vTaskDelay(pdMS_TO_TICKS(LORA_TX_AIRTIME_MS));    // wait for airtime
+    hw_set_radio_listening();                          // back to RX
 #endif
 }
 
-// -------------------------------------------------------
-// RX handler — called from UI timer
-// -------------------------------------------------------
-static void lora_handle_rx()
+// Build and transmit a PING (optionally with NODE_NAME payload)
+static void lora_send_ping(const uint8_t dest[6], bool with_name = false)
 {
 #ifndef SIM_BUILD
-    radio_rx_params_t rx;
-    rx.data   = (uint8_t *)malloc(257);
-    if (!rx.data) return;
-    rx.length = 0;
-    hw_get_radio_rx(rx);
-    if (rx.length > 0 && rx.state == RADIOLIB_ERR_NONE) {
-        char line[LORA_LOG_COL];
-        uint8_t slen = rx.length > 56 ? 56 : rx.length;
-        char snippet[57] = {};
-        for (int i = 0; i < slen; i++) {
-            uint8_t b = rx.data[i];
-            snippet[i] = (b >= 0x20 && b < 0x7F) ? (char)b : '.';
-        }
-        snprintf(line, sizeof(line), "[RX] %ddBm %s", (int)rx.rssi, snippet);
-        lora_log_push(line);
-        Serial.printf("[LoRa RX] %d bytes rssi=%d: %s\n", rx.length, rx.rssi, (char *)rx.data);
-        // Re-arm receive after read
-        lora_start_receive();
+    MeshPacket ping = {};
+    ping.type    = MESH_TYPE_PING;
+    ping.ttl     = 4;
+    ping.msgId   = esp_random() % 1000000000u;
+    memcpy(ping.destMac, dest, 6);
+    memcpy(ping.srcMac,  lora_my_mac, 6);
+    ping.appId   = 0x00;
+    if (with_name) {
+        uint8_t nlen = (uint8_t)strlen(NODE_NAME);
+        ping.payloadLen = nlen > 200 ? 200 : nlen;
+        memcpy(ping.payload, NODE_NAME, ping.payloadLen);
+    } else {
+        ping.payloadLen = 0;
     }
-    free(rx.data);
+    lora_tx_packet(&ping);
+#endif
+}
+
+// Send DATA packet to coordinator
+static void lora_send_data(uint8_t appId, const uint8_t *payload, uint8_t len)
+{
+#ifndef SIM_BUILD
+    if (lora_state != LORA_CONNECTED) return;
+    MeshPacket pkt = {};
+    pkt.type       = MESH_TYPE_DATA;
+    pkt.ttl        = 4;
+    pkt.msgId      = esp_random() % 1000000000u;
+    memcpy(pkt.destMac, lora_coord_mac, 6);
+    memcpy(pkt.srcMac,  lora_my_mac, 6);
+    pkt.appId      = appId;
+    pkt.payloadLen = len > 200 ? 200 : len;
+    memcpy(pkt.payload, payload, pkt.payloadLen);
+    lora_tx_packet(&pkt);
 #endif
 }
 
 // -------------------------------------------------------
-// UI timer callback
+// Process a received MeshPacket (called from task, log-push safe)
+// -------------------------------------------------------
+static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
+{
+    char line[LORA_LOG_COL];
+
+    switch (pkt->type) {
+
+        case MESH_TYPE_PONG:
+            if (lora_state == LORA_DISCOVERING) {
+                memcpy(lora_coord_mac, pkt->srcMac, 6);
+                lora_state = LORA_CONNECTED;
+                snprintf(line, sizeof(line),
+                         "[PONG] Coord %02X:%02X rssi=%d",
+                         pkt->srcMac[4], pkt->srcMac[5], rssi);
+                lora_log_push(line);
+            }
+            break;
+
+        case MESH_TYPE_DATA: {
+            uint8_t slen = pkt->payloadLen > 52 ? 52 : pkt->payloadLen;
+            char snippet[53] = {};
+            for (int i = 0; i < slen; i++) {
+                uint8_t b = pkt->payload[i];
+                snippet[i] = (b >= 0x20 && b < 0x7F) ? (char)b : '.';
+            }
+            snprintf(line, sizeof(line), "[DATA] %02X:%02X A%02X %s",
+                     pkt->srcMac[4], pkt->srcMac[5], pkt->appId, snippet);
+            lora_log_push(line);
+            Serial.printf("[LoRa MESH] DATA %02X:%02X A%02X: %s\n",
+                          pkt->srcMac[4], pkt->srcMac[5], pkt->appId, snippet);
+            break;
+        }
+
+        case MESH_TYPE_PING:
+            snprintf(line, sizeof(line), "[PING] %02X:%02X rssi=%d",
+                     pkt->srcMac[4], pkt->srcMac[5], rssi);
+            lora_log_push(line);
+            break;
+
+        case MESH_TYPE_ACK:
+            snprintf(line, sizeof(line), "[ACK] %02X:%02X rssi=%d",
+                     pkt->srcMac[4], pkt->srcMac[5], rssi);
+            lora_log_push(line);
+            break;
+
+        default:
+            snprintf(line, sizeof(line), "[0x%02X] %02X:%02X rssi=%d",
+                     pkt->type, pkt->srcMac[4], pkt->srcMac[5], rssi);
+            lora_log_push(line);
+            break;
+    }
+}
+
+// -------------------------------------------------------
+// Frequency scanner — returns freq index where PONG was
+// received, or -1 if none found. Scans all frequencies.
+// -------------------------------------------------------
+#ifndef SIM_BUILD
+static int lora_scan_for_coordinator()
+{
+    static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+    static uint8_t rx_buf[sizeof(MeshPacket) + 1];
+
+    char line[LORA_LOG_COL];
+
+    for (int i = 0; i < LORA_FREQ_COUNT; i++) {
+        snprintf(line, sizeof(line), "Scanning %.3f MHz...", lora_freqs[i]);
+        lora_log_push(line);
+
+        lora_set_freq(i);
+        hw_set_radio_listening();
+
+        // Send PING broadcast on this frequency
+        MeshPacket ping = {};
+        ping.type       = MESH_TYPE_PING;
+        ping.ttl        = 4;
+        ping.msgId      = esp_random() % 1000000000u;
+        memcpy(ping.destMac, broadcast, 6);
+        memcpy(ping.srcMac,  lora_my_mac, 6);
+        ping.appId      = 0x00;
+        ping.payloadLen = (uint8_t)strlen(NODE_NAME);
+        memcpy(ping.payload, NODE_NAME, ping.payloadLen);
+        lora_tx_packet(&ping);  // TX + wait airtime + re-arm RX
+
+        // Listen for PONG on this frequency
+        unsigned long deadline = (unsigned long)(millis()) + LORA_PONG_WAIT_MS;
+        while ((unsigned long)(millis()) < deadline) {
+            radio_rx_params_t rx;
+            rx.data   = rx_buf;
+            rx.length = 0;
+            hw_get_radio_rx(rx);
+
+            if (rx.length >= LORA_PKT_MIN && rx.state == 0) {
+                MeshPacket *pkt = (MeshPacket *)rx_buf;
+                if (pkt->type == MESH_TYPE_PONG) {
+                    snprintf(line, sizeof(line),
+                             "[PONG] Coord found on %.3f MHz  %02X:%02X",
+                             lora_freqs[i], pkt->srcMac[4], pkt->srcMac[5]);
+                    lora_log_push(line);
+                    memcpy(lora_coord_mac, pkt->srcMac, 6);
+                    return i;
+                }
+                // Log non-PONG packets seen during scan
+                lora_process_packet(pkt, rx.rssi);
+            }
+            vTaskDelay(pdMS_TO_TICKS(2));
+        }
+    }
+    return -1;  // not found
+}
+#endif
+
+// -------------------------------------------------------
+// Radio / mesh FreeRTOS task
+// -------------------------------------------------------
+#ifndef SIM_BUILD
+static void lora_mesh_task(void *param)
+{
+    static uint8_t rx_buf[sizeof(MeshPacket) + 1];
+
+    esp_efuse_mac_get_default(lora_my_mac);
+
+    char mac_line[LORA_LOG_COL];
+    snprintf(mac_line, sizeof(mac_line), "My MAC %02X:%02X:%02X:%02X:%02X:%02X",
+             lora_my_mac[0], lora_my_mac[1], lora_my_mac[2],
+             lora_my_mac[3], lora_my_mac[4], lora_my_mac[5]);
+    lora_log_push(mac_line);
+    lora_log_push("Scanning frequencies for coordinator...");
+
+    unsigned long last_hb   = 0;
+    unsigned long last_temp = 0;
+
+    for (;;) {
+        // Handle rescan request from UI options popup
+        if (lora_rescan_req) {
+            lora_rescan_req = false;
+            lora_state      = LORA_DISCOVERING;
+            memset(lora_coord_mac, 0, 6);
+            lora_log_push("Rescanning...");
+        }
+
+        // -----------------------------------------------
+        // DISCOVERING: scan all frequencies for coordinator
+        // -----------------------------------------------
+        if (lora_state == LORA_DISCOVERING) {
+            int found_idx = lora_scan_for_coordinator();
+
+            if (found_idx >= 0) {
+                lora_freq_idx = found_idx;
+                lora_state    = LORA_CONNECTED;
+
+                // Announce ourselves on the found frequency
+                lora_send_ping(lora_coord_mac, true);      // PING with node name
+                uint8_t nm = (uint8_t)strlen(NODE_NAME);   // DATA appId 0x06 = node name
+                lora_send_data(0x06, (const uint8_t *)NODE_NAME, nm);
+                lora_log_push("Announced. Listening...");
+
+                last_hb   = (unsigned long)(millis()) - LORA_HB_INTERVAL;
+                last_temp = (unsigned long)(millis()) - LORA_TEMP_INTERVAL;
+
+            } else {
+                lora_state = LORA_NO_COORD;
+                lora_log_push("No coordinator found. Waiting 10s...");
+                vTaskDelay(pdMS_TO_TICKS(LORA_NO_COORD_WAIT_MS));
+                lora_state = LORA_DISCOVERING;  // retry
+            }
+        }
+
+        // -----------------------------------------------
+        // CONNECTED: receive packets + send heartbeat/temp
+        // -----------------------------------------------
+        if (lora_state == LORA_CONNECTED) {
+            unsigned long now = (unsigned long)(millis());
+
+            // Heartbeat: appId 0x05 (ping) + 0x06 (node name)
+            if (now - last_hb >= LORA_HB_INTERVAL) {
+                last_hb = now;
+                uint8_t hb = 0x01;
+                lora_send_data(0x05, &hb, 1);
+                lora_send_data(0x06, (const uint8_t *)NODE_NAME, (uint8_t)strlen(NODE_NAME));
+                lora_log_push("[HB] Heartbeat sent");
+            }
+
+            // Temperature report: appId 0x01, JSON {"name":"...","temp":"23.5"}
+            if (now - last_temp >= LORA_TEMP_INTERVAL) {
+                last_temp = now;
+                float tempC = temperatureRead();
+                JsonDocument doc;
+                doc["name"] = NODE_NAME;
+                doc["temp"] = serialized(String(tempC, 1));
+                String payload;
+                serializeJson(doc, payload);
+                lora_send_data(0x01, (const uint8_t *)payload.c_str(),
+                               (uint8_t)payload.length());
+                char tline[48];
+                snprintf(tline, sizeof(tline), "[TX] Temp: %.1fC", tempC);
+                lora_log_push(tline);
+            }
+
+            // Poll for incoming packet
+            radio_rx_params_t rx;
+            rx.data   = rx_buf;
+            rx.length = 0;
+            hw_get_radio_rx(rx);
+
+            if (rx.length >= LORA_PKT_MIN && rx.state == 0) {
+                if (rx.length <= sizeof(MeshPacket)) {
+                    lora_process_packet((MeshPacket *)rx_buf, rx.rssi);
+                } else {
+                    // Oversized / raw packet
+                    char line[LORA_LOG_COL];
+                    snprintf(line, sizeof(line), "[RX] %dB rssi=%d", (int)rx.length, rx.rssi);
+                    lora_log_push(line);
+                }
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(2));
+    }
+}
+#endif
+
+// -------------------------------------------------------
+// UI timer  (display only — no radio I/O here)
 // -------------------------------------------------------
 static void lora_timer_cb(lv_timer_t *t)
 {
-    lora_handle_rx();
-
     if (lora_log_dirty && lora_log_cont)
         lora_rebuild_rows();
 
+    if (lora_status_lbl) {
+        switch (lora_state) {
+            case LORA_DISCOVERING: {
+                static const char *dots[] = {".", "..", "..."};
+                char buf[24];
+                snprintf(buf, sizeof(buf), "Scanning%s", dots[lora_dot_phase % 3]);
+                lora_dot_phase++;
+                lv_label_set_text(lora_status_lbl, buf);
+                lv_obj_set_style_text_color(lora_status_lbl, um_col_warn(), LV_PART_MAIN);
+                break;
+            }
+            case LORA_CONNECTED: {
+                char buf[20];
+                snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+                         lora_coord_mac[0], lora_coord_mac[1], lora_coord_mac[2],
+                         lora_coord_mac[3], lora_coord_mac[4], lora_coord_mac[5]);
+                lv_label_set_text(lora_status_lbl, buf);
+                lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
+                break;
+            }
+            case LORA_NO_COORD:
+                lv_label_set_text(lora_status_lbl, "No coordinator");
+                lv_obj_set_style_text_color(lora_status_lbl, um_col_err(), LV_PART_MAIN);
+                break;
+        }
+    }
+
     if (lora_info_lbl) {
-        char buf[48];
-        snprintf(buf, sizeof(buf), "Freq: %.3f MHz  SF12  BW125", lora_freqs[lora_freq_idx]);
-        lv_label_set_text(lora_info_lbl, buf);
+        if (lora_state == LORA_CONNECTED) {
+            char buf[48];
+            snprintf(buf, sizeof(buf), "Freq: %.3f MHz  SF12  BW125",
+                     lora_freqs[lora_freq_idx]);
+            lv_label_set_text(lora_info_lbl, buf);
+            lv_obj_set_style_text_color(lora_info_lbl, um_col_text_dim(), LV_PART_MAIN);
+        } else {
+            char buf[48];
+            snprintf(buf, sizeof(buf), "Scanning %.3f MHz...",
+                     lora_freqs[lora_freq_idx < LORA_FREQ_COUNT ? lora_freq_idx : 0]);
+            lv_label_set_text(lora_info_lbl, buf);
+            lv_obj_set_style_text_color(lora_info_lbl, um_col_text_hint(), LV_PART_MAIN);
+        }
     }
 }
 
 // -------------------------------------------------------
-// Rebuild message rows (orange accent, matching um_mesh style)
+// Rebuild message rows
 // -------------------------------------------------------
 static void lora_rebuild_rows()
 {
@@ -213,7 +514,7 @@ static void lora_rebuild_rows()
 }
 
 // -------------------------------------------------------
-// Options popup (frequency dropdown + apply/cancel)
+// Options popup  (frequency start + rescan)
 // -------------------------------------------------------
 static void lora_popup_close()
 {
@@ -229,10 +530,9 @@ static void lora_popup_open()
 {
     if (lora_popup_cont) return;
 
-    // Build dropdown option string
     static char dd_opts[512];
     dd_opts[0] = '\0';
-    for (int i = 0; i < lora_freq_count; i++) {
+    for (int i = 0; i < LORA_FREQ_COUNT; i++) {
         char entry[24];
         snprintf(entry, sizeof(entry), "%.3f MHz", lora_freqs[i]);
         if (i > 0) strncat(dd_opts, "\n", sizeof(dd_opts) - strlen(dd_opts) - 1);
@@ -240,7 +540,7 @@ static void lora_popup_open()
     }
 
     lora_popup_cont = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(lora_popup_cont, 260, 168);
+    lv_obj_set_size(lora_popup_cont, 260, 178);
     lv_obj_center(lora_popup_cont);
     lv_obj_set_style_bg_color(lora_popup_cont, um_col_surface(), LV_PART_MAIN);
     lv_obj_set_style_border_color(lora_popup_cont, um_col_border_focus(), LV_PART_MAIN);
@@ -260,8 +560,9 @@ static void lora_popup_open()
     lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
+    // Start-frequency hint (scan will begin here)
     lv_obj_t *freq_lbl = lv_label_create(lora_popup_cont);
-    lv_label_set_text(freq_lbl, "Frequency:");
+    lv_label_set_text(freq_lbl, "Scan start frequency:");
     lv_obj_set_style_text_color(freq_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_set_width(freq_lbl, lv_pct(100));
 
@@ -276,16 +577,9 @@ static void lora_popup_open()
     lv_obj_add_event_cb(dd, [](lv_event_t *e) {
         lv_obj_t *obj = (lv_obj_t *)lv_event_get_target(e);
         lora_freq_idx = (int)lv_dropdown_get_selected(obj);
-        lora_set_radio_params();
-        lora_start_receive();
-        if (lora_status_lbl) {
-            char buf[24];
-            snprintf(buf, sizeof(buf), "%.3f MHz", lora_freqs[lora_freq_idx]);
-            lv_label_set_text(lora_status_lbl, buf);
-        }
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
-    // Button row: Apply + Cancel
+    // Button row: Rescan + Cancel
     lv_obj_t *btn_row = lv_obj_create(lora_popup_cont);
     lv_obj_set_width(btn_row, lv_pct(100));
     lv_obj_set_height(btn_row, LV_SIZE_CONTENT);
@@ -297,24 +591,23 @@ static void lora_popup_open()
     lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    lv_obj_t *apply_btn = lv_btn_create(btn_row);
-    lv_obj_set_flex_grow(apply_btn, 1);
-    lv_obj_set_style_bg_color(apply_btn, UM_COL(0,50,70, 200,225,242), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(apply_btn, um_col_focus_cyan(),
+    lv_obj_t *scan_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(scan_btn, 1);
+    lv_obj_set_style_bg_color(scan_btn, UM_COL(0,50,70, 200,225,242), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(scan_btn, um_col_focus_cyan(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(apply_btn, um_col_border_focus(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(apply_btn, 1, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(apply_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(apply_btn, 6, LV_PART_MAIN);
-    lv_obj_add_event_cb(apply_btn, [](lv_event_t *e) {
-        lora_set_radio_params();
-        lora_start_receive();
+    lv_obj_set_style_border_color(scan_btn, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(scan_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(scan_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(scan_btn, 6, LV_PART_MAIN);
+    lv_obj_add_event_cb(scan_btn, [](lv_event_t *e) {
+        lora_rescan_req = true;
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *apply_lbl = lv_label_create(apply_btn);
-    lv_label_set_text(apply_lbl, LV_SYMBOL_OK "  Apply");
-    lv_obj_set_style_text_color(apply_lbl, um_col_cyan_bright(), LV_PART_MAIN);
-    lv_obj_center(apply_lbl);
+    lv_obj_t *scan_lbl = lv_label_create(scan_btn);
+    lv_label_set_text(scan_lbl, LV_SYMBOL_REFRESH "  Rescan");
+    lv_obj_set_style_text_color(scan_lbl, um_col_cyan_bright(), LV_PART_MAIN);
+    lv_obj_center(scan_lbl);
 
     lv_obj_t *cancel_btn = lv_btn_create(btn_row);
     lv_obj_set_flex_grow(cancel_btn, 1);
@@ -334,9 +627,9 @@ static void lora_popup_open()
     lv_group_t *g = lv_group_get_default();
     if (g) {
         lv_group_add_obj(g, dd);
-        lv_group_add_obj(g, apply_btn);
+        lv_group_add_obj(g, scan_btn);
         lv_group_add_obj(g, cancel_btn);
-        lv_group_focus_obj(apply_btn);
+        lv_group_focus_obj(scan_btn);
     }
 }
 
@@ -374,10 +667,16 @@ void um_lora_create()
     if (!lora_mutex) lora_mutex = xSemaphoreCreateMutex();
     hw_radio_begin();
 #endif
-    lora_set_radio_params();
-    lora_start_receive();
-    lora_log_push("LoRa RX ready...");
 
+    lora_state      = LORA_DISCOVERING;
+    lora_rescan_req = false;
+    lora_dot_phase  = 0;
+    memset(lora_coord_mac, 0, 6);
+    lora_logHead   = 0;
+    lora_logCount  = 0;
+    lora_log_dirty = false;
+
+    // --- Root container ---
     lora_root = lv_obj_create(lv_scr_act());
     lv_obj_set_size(lora_root, lv_pct(100), lv_pct(100));
     lv_obj_center(lora_root);
@@ -401,18 +700,13 @@ void um_lora_create()
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *hdr_title = lv_label_create(hdr);
-    lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " LoRa RX");
+    lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " LoRa Mesh");
     lv_obj_set_style_text_color(hdr_title, um_col_orange(), LV_PART_MAIN);
 
     lora_status_lbl = lv_label_create(hdr);
-    {
-        char buf[24];
-        snprintf(buf, sizeof(buf), "%.3f MHz", lora_freqs[lora_freq_idx]);
-        lv_label_set_text(lora_status_lbl, buf);
-    }
+    lv_label_set_text(lora_status_lbl, "Scanning...");
     lv_obj_set_style_text_color(lora_status_lbl, um_col_warn(), LV_PART_MAIN);
 
-    // Back button (home icon, top-right)
     lv_obj_t *back_btn = lv_btn_create(hdr);
     lv_obj_set_size(back_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(back_btn, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -445,11 +739,7 @@ void um_lora_create()
 
     // --- Info line ---
     lora_info_lbl = lv_label_create(lora_root);
-    {
-        char buf[48];
-        snprintf(buf, sizeof(buf), "Freq: %.3f MHz  SF12  BW125", lora_freqs[lora_freq_idx]);
-        lv_label_set_text(lora_info_lbl, buf);
-    }
+    lv_label_set_text(lora_info_lbl, "Scanning frequencies...");
     lv_obj_set_style_text_color(lora_info_lbl, um_col_text_hint(), LV_PART_MAIN);
     lv_obj_set_width(lora_info_lbl, lv_pct(100));
 
@@ -460,7 +750,7 @@ void um_lora_create()
     lv_obj_set_style_border_width(div2, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(div2, 0, LV_PART_MAIN);
 
-    // --- Scrollable message log (grows to fill available space) ---
+    // --- Scrollable message log ---
     lora_log_cont = lv_obj_create(lora_root);
     lv_obj_set_width(lora_log_cont, lv_pct(100));
     lv_obj_set_flex_grow(lora_log_cont, 1);
@@ -476,21 +766,25 @@ void um_lora_create()
     lv_obj_set_style_width(lora_log_cont, 3, LV_PART_SCROLLBAR);
     lv_obj_set_style_radius(lora_log_cont, 2, LV_PART_SCROLLBAR);
 
-
-    // --- UI update timer ---
+    // --- UI timer ---
     lora_timer = lv_timer_create(lora_timer_cb, LORA_UI_TIMER_MS, NULL);
     lv_timer_ready(lora_timer);
 
-    if (lora_logCount > 0) lora_log_dirty = true;
+    // --- Start radio task (once) ---
+#ifndef SIM_BUILD
+    if (!lora_task) {
+        xTaskCreate(lora_mesh_task, "lora_mesh", 6144, NULL, 4, &lora_task);
+    }
+#endif
 }
 
 void um_lora_destroy()
 {
     if (!lora_root) return;
 
-    if (lora_timer)     { lv_timer_del(lora_timer);     lora_timer     = NULL; }
-    if (lora_bsp_timer) { lv_timer_del(lora_bsp_timer); lora_bsp_timer = NULL; }
-    if (lora_popup_cont) { lv_obj_del(lora_popup_cont); lora_popup_cont = NULL; }
+    if (lora_timer)      { lv_timer_del(lora_timer);      lora_timer      = NULL; }
+    if (lora_bsp_timer)  { lv_timer_del(lora_bsp_timer);  lora_bsp_timer  = NULL; }
+    if (lora_popup_cont) { lv_obj_del(lora_popup_cont);   lora_popup_cont = NULL; }
 
     lv_group_t *g = lv_group_get_default();
     if (g) lv_group_remove_all_objs(g);
@@ -500,4 +794,8 @@ void um_lora_destroy()
     lora_status_lbl = NULL;
     lora_info_lbl   = NULL;
     lora_log_cont   = NULL;
+
+#ifndef SIM_BUILD
+    if (lora_task) { vTaskDelete(lora_task); lora_task = NULL; }
+#endif
 }
