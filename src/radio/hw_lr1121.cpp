@@ -87,6 +87,7 @@ void hw_set_radio_default() {
 
 void hw_set_radio_listening() {
     last_send_millis = millis();
+    xEventGroupClearBits(radioEvent, LORA_ISR_FLAG);
     instance.lockSPI();
     radio.startReceive();
     instance.unlockSPI();
@@ -111,6 +112,7 @@ void hw_set_radio_tx(radio_tx_params_t &params, bool continuous) {
         params.state = -1;
         return;
     }
+    xEventGroupClearBits(radioEvent, LORA_ISR_FLAG);
     instance.lockSPI();
     radio.standby();
     params.state = radio.startTransmit(params.data, params.length);
