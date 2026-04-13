@@ -36,12 +36,12 @@ static int lora_freq_idx = 0;       // index of active/connected frequency
 // -------------------------------------------------------
 static const int lora_sf_vals[] = { 7, 8, 9, 10, 11, 12 };
 static const char * const lora_sf_names[] = {
-    "SF7  \xe2\x80\x94 Fast, short range",   // SF7  — Fast, short range
-    "SF8  \xe2\x80\x94 Balanced fast",        // SF8  — Balanced fast
-    "SF9  \xe2\x80\x94 Balanced",             // SF9  — Balanced        ← default
-    "SF10 \xe2\x80\x94 Long range",           // SF10 — Long range
-    "SF11 \xe2\x80\x94 Very long range",      // SF11 — Very long range
-    "SF12 \xe2\x80\x94 Max range, slow",      // SF12 — Max range, slow
+    "SF7  - Fast, short range",
+    "SF8  - Balanced fast",
+    "SF9  - Balanced",
+    "SF10 - Long range",
+    "SF11 - Very long range",
+    "SF12 - Max range, slow",
 };
 static const int LORA_SF_COUNT = (int)(sizeof(lora_sf_vals) / sizeof(lora_sf_vals[0]));
 static int lora_sf_idx = 2;         // default: SF9
@@ -51,12 +51,12 @@ static int lora_sf_idx = 2;         // default: SF9
 // -------------------------------------------------------
 static const int lora_pwr_vals[] = { 2, 10, 14, 17, 20, 22 };
 static const char * const lora_pwr_names[] = {
-    " 2 dBm \xe2\x80\x94 Min",     //  2 dBm — Min
-    "10 dBm \xe2\x80\x94 Low",     // 10 dBm — Low
-    "14 dBm \xe2\x80\x94 Medium",  // 14 dBm — Medium
-    "17 dBm \xe2\x80\x94 High",    // 17 dBm — High
-    "20 dBm \xe2\x80\x94 Max",     // 20 dBm — Max
-    "22 dBm \xe2\x80\x94 Boost",   // 22 dBm — Boost         ← default
+    " 2 dBm - Min",
+    "10 dBm - Low",
+    "14 dBm - Medium",
+    "17 dBm - High",
+    "20 dBm - Max",
+    "22 dBm - Boost",
 };
 static const int LORA_PWR_COUNT = (int)(sizeof(lora_pwr_vals) / sizeof(lora_pwr_vals[0]));
 static int lora_pwr_idx = 5;        // default: 22 dBm
@@ -309,7 +309,7 @@ static void lora_mesh_task(void *param)
             memcpy(pkt.payload, msg, pkt.payloadLen);
             lora_tx_packet(&pkt);
             char line[LORA_LOG_COL];
-            snprintf(line, sizeof(line), "[TX] Announce on %.3f MHz", lora_freqs[lora_freq_idx]);
+            snprintf(line, sizeof(line), "[TX] Testmessage on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
         }
 
@@ -406,7 +406,8 @@ static void lora_rebuild_rows()
         if (g) lv_group_add_obj(g, row);
     }
 
-    if (g && lv_obj_get_child_count(lora_log_cont) > 0)
+    // Only steal focus to the log if the popup is not open
+    if (!lora_popup_cont && g && lv_obj_get_child_count(lora_log_cont) > 0)
         lv_group_focus_obj(lv_obj_get_child(lora_log_cont, 0));
 
 #ifndef SIM_BUILD
@@ -477,10 +478,10 @@ static void lora_popup_open()
     lv_obj_add_flag(lora_popup_cont, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scroll_dir(lora_popup_cont, LV_DIR_VER);
     lv_obj_set_flex_flow(lora_popup_cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(lora_popup_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(lora_popup_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(lora_popup_cont, 6, LV_PART_MAIN);
 
-    // Title
+    // Title — decorative only, not in focus group
     lv_obj_t *title = lv_label_create(lora_popup_cont);
     lv_label_set_text(title, LV_SYMBOL_SETTINGS "  LoRa Options");
     lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
@@ -500,6 +501,10 @@ static void lora_popup_open()
     lv_obj_set_style_text_color(freq_dd, um_col_orange(), LV_PART_MAIN);
     lv_obj_set_style_border_color(freq_dd, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(freq_dd, 1, LV_PART_MAIN);
+    // When freq_dd (first item) gets focus, scroll to top so title is visible
+    lv_obj_add_event_cb(freq_dd, [](lv_event_t *e) {
+        lv_obj_scroll_to_y(lora_popup_cont, 0, LV_ANIM_ON);
+    }, LV_EVENT_FOCUSED, NULL);
     lv_obj_add_event_cb(freq_dd, [](lv_event_t *e) {
         lora_freq_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
@@ -518,6 +523,7 @@ static void lora_popup_open()
     lv_obj_set_style_text_color(sf_dd, um_col_orange(), LV_PART_MAIN);
     lv_obj_set_style_border_color(sf_dd, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(sf_dd, 1, LV_PART_MAIN);
+    lv_obj_add_flag(sf_dd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(sf_dd, [](lv_event_t *e) {
         lora_sf_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
@@ -536,6 +542,7 @@ static void lora_popup_open()
     lv_obj_set_style_text_color(pwr_dd, um_col_orange(), LV_PART_MAIN);
     lv_obj_set_style_border_color(pwr_dd, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(pwr_dd, 1, LV_PART_MAIN);
+    lv_obj_add_flag(pwr_dd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(pwr_dd, [](lv_event_t *e) {
         lora_pwr_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
@@ -550,6 +557,7 @@ static void lora_popup_open()
     lv_obj_set_style_border_width(test_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(test_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(test_btn, 6, LV_PART_MAIN);
+    lv_obj_add_flag(test_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(test_btn, [](lv_event_t *e) {
         lora_test_req = true;
         lora_popup_close();
@@ -635,6 +643,8 @@ static void lora_popup_open()
     lv_obj_set_style_text_color(cancel_lbl, UM_COL(180,100,100, 150,35,35), LV_PART_MAIN);
     lv_obj_center(cancel_lbl);
 
+    lv_obj_scroll_to_y(lora_popup_cont, 0, LV_ANIM_OFF);
+
     lv_group_t *g = lv_group_get_default();
     if (g) {
         lv_group_add_obj(g, freq_dd);
@@ -644,7 +654,7 @@ static void lora_popup_open()
         lv_group_add_obj(g, scan_btn);
         lv_group_add_obj(g, def_btn);
         lv_group_add_obj(g, cancel_btn);
-        lv_group_focus_obj(test_btn);
+        lv_group_focus_obj(freq_dd);
     }
 }
 
@@ -684,7 +694,7 @@ void um_lora_create()
 #endif
 
     lora_test_req        = false;
-    lora_announce_req    = true;
+    lora_announce_req    = false;
     lora_freq_change_req = false;
     lora_logHead         = 0;
     lora_logCount  = 0;
