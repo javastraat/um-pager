@@ -69,7 +69,7 @@ static lv_timer_t *lora_bsp_timer  = NULL;
 #define LORA_UI_TIMER_MS        250
 
 // Timing
-#define LORA_TX_AIRTIME_MS     4000UL   // SF12/BW125 worst-case ~2s + margin
+#define LORA_TX_AIRTIME_MS     1500UL   // SF9/BW125 worst-case ~0.5s + margin
 
 // Minimum valid wire-format MeshPacket size (header only, no payload)
 #define LORA_PKT_MIN  (1+1+4+6+6+1+1)  // type+ttl+msgId+dest+src+appId+payloadLen = 20
@@ -108,7 +108,7 @@ static void lora_set_freq(int idx)
     radio_params_t p;
     p.freq      = lora_freqs[idx];
     p.bandwidth = 125.0f;
-    p.sf        = 12;
+    p.sf        = 9;
     p.cr        = 5;
     p.syncWord  = 0xCD;
     p.power     = 22;
