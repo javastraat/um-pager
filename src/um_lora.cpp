@@ -234,7 +234,6 @@ static void lora_mesh_task(void *param)
         // Test message — broadcast on current frequency, lora_tx_packet re-arms RX
         if (lora_test_req) {
             lora_test_req = false;
-            lora_set_freq(lora_freq_idx);
             static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
             MeshPacket pkt = {};
             pkt.type       = MESH_TYPE_DATA;

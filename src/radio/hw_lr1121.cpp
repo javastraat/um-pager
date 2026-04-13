@@ -26,8 +26,9 @@ static void hw_radio_isr() {
 
 void hw_radio_begin() {
     radioEvent = xEventGroupCreate();
-    // Radio register isr event
+    // Radio register isr events
     radio.setPacketSentAction(hw_radio_isr);
+    radio.setPacketReceivedAction(hw_radio_isr);
 }
 
 int16_t hw_set_radio_params(radio_params_t &params) {
@@ -89,6 +90,7 @@ void hw_set_radio_listening() {
     last_send_millis = millis();
     xEventGroupClearBits(radioEvent, LORA_ISR_FLAG);
     instance.lockSPI();
+    radio.finishTransmit();   // clears TX state / DIO action before switching to RX
     radio.startReceive();
     instance.unlockSPI();
 }
