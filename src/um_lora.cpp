@@ -281,13 +281,14 @@ static void lora_mesh_task(void *param)
             pkt.msgId      = esp_random() % 1000000000u;
             memcpy(pkt.destMac, broadcast, 6);
             memcpy(pkt.srcMac,  lora_my_mac, 6);
-            pkt.appId      = 0x7F;
-            const char *msg = "TEST from " NODE_NAME;
+            pkt.appId      = 0x06; //0x7F;
+            //const char *msg = "Test from " NODE_NAME;
+            const char *msg = NODE_NAME;
             pkt.payloadLen = (uint8_t)strlen(msg);
             memcpy(pkt.payload, msg, pkt.payloadLen);
             lora_tx_packet(&pkt);
             char line[LORA_LOG_COL];
-            snprintf(line, sizeof(line), "[TX] Test on %.3f MHz", lora_freqs[lora_freq_idx]);
+            snprintf(line, sizeof(line), "[TX] Announce on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
         }
 
