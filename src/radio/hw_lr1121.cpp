@@ -86,6 +86,7 @@ void hw_set_radio_default() {
 }
 
 void hw_set_radio_listening() {
+    last_send_millis = millis();
     instance.lockSPI();
     radio.startReceive();
     instance.unlockSPI();
@@ -104,7 +105,9 @@ void hw_set_radio_tx(radio_tx_params_t &params, bool continuous) {
         return;
     }
     instance.lockSPI();
+    radio.standby();
     params.state = radio.startTransmit(params.data, params.length);
+    Serial.printf("[hw_tx] standby->startTransmit state=%d len=%d\n", params.state, (int)params.length);
     instance.unlockSPI();
 }
 
