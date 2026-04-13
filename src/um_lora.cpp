@@ -76,6 +76,7 @@ static const uint32_t lora_tx_airtime_ms[] = {
 // -------------------------------------------------------
 static uint8_t lora_my_mac[6]             = {};
 static volatile bool lora_test_req        = false;
+static volatile bool lora_announce_req    = false;
 static volatile bool lora_freq_change_req = false;
 
 // -------------------------------------------------------
@@ -271,6 +272,26 @@ static void lora_mesh_task(void *param)
             lora_log_push(line);
         }
 
+        // Announce on open — broadcast node name when LoRa page is opened
+        if (lora_announce_req) {
+            lora_announce_req = false;
+            static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+            MeshPacket pkt = {};
+            pkt.type       = MESH_TYPE_DATA;
+            pkt.ttl        = 4;
+            pkt.msgId      = esp_random() % 1000000000u;
+            memcpy(pkt.destMac, broadcast, 6);
+            memcpy(pkt.srcMac,  lora_my_mac, 6);
+            pkt.appId      = 0x06;
+            const char *msg = NODE_NAME;
+            pkt.payloadLen = (uint8_t)strlen(msg);
+            memcpy(pkt.payload, msg, pkt.payloadLen);
+            lora_tx_packet(&pkt);
+            char line[LORA_LOG_COL];
+            snprintf(line, sizeof(line), "[TX] Announce on %.3f MHz", lora_freqs[lora_freq_idx]);
+            lora_log_push(line);
+        }
+
         // Test message — broadcast on current frequency, lora_tx_packet re-arms RX
         if (lora_test_req) {
             lora_test_req = false;
@@ -281,9 +302,9 @@ static void lora_mesh_task(void *param)
             pkt.msgId      = esp_random() % 1000000000u;
             memcpy(pkt.destMac, broadcast, 6);
             memcpy(pkt.srcMac,  lora_my_mac, 6);
-            pkt.appId      = 0x06; //0x7F;
-            //const char *msg = "Test from " NODE_NAME;
-            const char *msg = NODE_NAME;
+            pkt.appId      = 0x01; //0x7F;
+            const char *msg = "Test from " NODE_NAME;
+            //const char *msg = NODE_NAME;
             pkt.payloadLen = (uint8_t)strlen(msg);
             memcpy(pkt.payload, msg, pkt.payloadLen);
             lora_tx_packet(&pkt);
@@ -663,6 +684,7 @@ void um_lora_create()
 #endif
 
     lora_test_req        = false;
+    lora_announce_req    = true;
     lora_freq_change_req = false;
     lora_logHead         = 0;
     lora_logCount  = 0;
