@@ -567,6 +567,26 @@ static void lora_popup_open()
     lv_obj_set_style_text_color(test_lbl, um_col_ok(), LV_PART_MAIN);
     lv_obj_center(test_lbl);
 
+    // --- Send Announce button ---
+    lv_obj_t *ann_btn = lv_btn_create(lora_popup_cont);
+    lv_obj_set_width(ann_btn, lv_pct(100));
+    lv_obj_set_style_bg_color(ann_btn, UM_COL(0,30,50, 200,220,242), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ann_btn, um_col_focus_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(ann_btn, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(ann_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(ann_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(ann_btn, 6, LV_PART_MAIN);
+    lv_obj_add_flag(ann_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(ann_btn, [](lv_event_t *e) {
+        lora_announce_req = true;
+        lora_popup_close();
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *ann_lbl = lv_label_create(ann_btn);
+    lv_label_set_text(ann_lbl, LV_SYMBOL_WIFI "  Send Announce");
+    lv_obj_set_style_text_color(ann_lbl, um_col_cyan_bright(), LV_PART_MAIN);
+    lv_obj_center(ann_lbl);
+
     // --- Button row: Apply + Defaults + Cancel ---
     lv_obj_t *btn_row = lv_obj_create(lora_popup_cont);
     lv_obj_set_width(btn_row, lv_pct(100));
@@ -580,23 +600,23 @@ static void lora_popup_open()
     lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     // Apply
-    lv_obj_t *scan_btn = lv_btn_create(btn_row);
-    lv_obj_set_flex_grow(scan_btn, 1);
-    lv_obj_set_style_bg_color(scan_btn, UM_COL(0,50,70, 200,225,242), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(scan_btn, um_col_focus_cyan(),
+    lv_obj_t *apply_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(apply_btn, 1);
+    lv_obj_set_style_bg_color(apply_btn, UM_COL(0,50,70, 200,225,242), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(apply_btn, um_col_focus_cyan(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_color(scan_btn, um_col_border_focus(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(scan_btn, 1, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(scan_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(scan_btn, 6, LV_PART_MAIN);
-    lv_obj_add_event_cb(scan_btn, [](lv_event_t *e) {
+    lv_obj_set_style_border_color(apply_btn, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(apply_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(apply_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(apply_btn, 6, LV_PART_MAIN);
+    lv_obj_add_event_cb(apply_btn, [](lv_event_t *e) {
         lora_freq_change_req = true;
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *scan_lbl = lv_label_create(scan_btn);
-    lv_label_set_text(scan_lbl, LV_SYMBOL_OK "  Apply");
-    lv_obj_set_style_text_color(scan_lbl, um_col_cyan_bright(), LV_PART_MAIN);
-    lv_obj_center(scan_lbl);
+    lv_obj_t *apply_lbl = lv_label_create(apply_btn);
+    lv_label_set_text(apply_lbl, LV_SYMBOL_OK "  Apply");
+    lv_obj_set_style_text_color(apply_lbl, um_col_cyan_bright(), LV_PART_MAIN);
+    lv_obj_center(apply_lbl);
 
     // Defaults  (SF9 / 22 dBm / freq 0 — see LORA_DEFAULT_* defines)
     lv_obj_t *def_btn = lv_btn_create(btn_row);
@@ -651,7 +671,8 @@ static void lora_popup_open()
         lv_group_add_obj(g, sf_dd);
         lv_group_add_obj(g, pwr_dd);
         lv_group_add_obj(g, test_btn);
-        lv_group_add_obj(g, scan_btn);
+        lv_group_add_obj(g, ann_btn);
+        lv_group_add_obj(g, apply_btn);
         lv_group_add_obj(g, def_btn);
         lv_group_add_obj(g, cancel_btn);
         lv_group_focus_obj(freq_dd);
