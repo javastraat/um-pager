@@ -287,7 +287,7 @@ static void lora_timer_cb(lv_timer_t *t)
 
     if (lora_info_lbl) {
         char buf[48];
-        snprintf(buf, sizeof(buf), "Freq: %.3f MHz  SF12  BW125", lora_freqs[lora_freq_idx]);
+        snprintf(buf, sizeof(buf), "Freq: %.3f MHz  SF9  BW125", lora_freqs[lora_freq_idx]);
         lv_label_set_text(lora_info_lbl, buf);
         lv_obj_set_style_text_color(lora_info_lbl, um_col_text_dim(), LV_PART_MAIN);
     }
