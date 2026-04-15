@@ -2,6 +2,13 @@
 #include "um_theme.h"   // pulls in um_theme_t + all colour functions
 #include "config.h"     // UM_MSG_SERVER_NAME_LEN and other constants
 
+// ---------------------------------------------------------------------------
+// Custom FontAwesome symbols (beyond the ~60 built into LVGL)
+// Codepoints: https://fontawesome.com/icons  — UTF-8 encode U+FXXX as needed
+// ---------------------------------------------------------------------------
+#define UM_SYMBOL_ANTENNA  "\xEE\xA2\xBF"  // U+E8BF Material Icons settings_input_antenna
+#define UM_SYMBOL_NFC      "\xEE\xA9\xB1"  // U+EA71 Material Icons nfc
+
 // Shared flags and settings between screens and main loop
 extern volatile bool       um_otaRequested;
 extern volatile uint32_t   um_sleep_timeout_ms; // 0 = never sleep

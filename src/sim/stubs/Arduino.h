@@ -5,7 +5,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
 #include <time.h>
+
+using String = std::string;
+
+static inline uint32_t esp_random() { return (uint32_t)rand(); }
 
 #ifdef __APPLE__
 #include <mach/mach_time.h>
@@ -29,9 +34,7 @@ struct _SerialStub {
     void print(const char *s)   { fputs(s, stdout); }
     void println(const char *s) { puts(s); }
     void println()              { putchar('\n'); }
-    template<typename T>
-    void printf(const char *fmt, T a) { ::printf(fmt, a); }
-    template<typename T, typename U>
-    void printf(const char *fmt, T a, U b) { ::printf(fmt, a, b); }
+    template<typename... Args>
+    void printf(const char *fmt, Args... args) { ::printf(fmt, args...); }
 };
 extern _SerialStub Serial;

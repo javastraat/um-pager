@@ -70,12 +70,14 @@ static void msg_compose_submit() {
         lora_queue_message(msg, 0x01);
     } else {
         if (um_mesh_has_coordinator()) {
+#ifndef SIM_BUILD
             JsonDocument doc;
             doc["name"] = NODE_NAME;
             doc["msg"] = msg;
             String payload;
             serializeJson(doc, payload);
             um_mesh_send_to_coordinator(0x01, payload);
+#endif
         }
     }
     msg_compose_close();

@@ -11,49 +11,54 @@
 // Logo image descriptor defined in um_welcome.cpp
 extern const lv_image_dsc_t um_logo_dsc;
 
+// Custom icon fonts (Material Icons / FontAwesome extras, generated via LVGL font converter)
+LV_FONT_DECLARE(fa_extra);      // size 40 — menu tile icons
+LV_FONT_DECLARE(fa_extra_14);   // size 14 — topbar indicators
+
 // -------------------------------------------------------
 // Menu tile definitions
 // -------------------------------------------------------
 struct MenuTile {
-    const char *symbol;       // LVGL built-in symbol glyph
-    const char *title;
-    const char *subtitle;
-    lv_color_t  accent;       // icon + border highlight colour
-    UMScreen    target;
+    const char    *symbol;       // LVGL built-in symbol glyph
+    const char    *title;
+    const char    *subtitle;
+    lv_color_t     accent;       // icon + border highlight colour
+    UMScreen       target;
+    const lv_font_t *font;       // nullptr = use default lv_font_montserrat_40
 };
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,"UniMesh",       "ESPNow Mesh",
-        lv_color_make(0, 200, 255),   UM_SCREEN_MESH
+        LV_SYMBOL_WIFI,    "UniMesh",    "ESPNow Mesh",
+        lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   nullptr
     },
     {
-        LV_SYMBOL_WIFI,"LoRa",          "LoRa Radio",
-        lv_color_make(255, 120, 0),   UM_SCREEN_LORA
+        UM_SYMBOL_ANTENNA, "LoRa",       "LoRa Radio",
+        lv_color_make(255, 120, 0),   UM_SCREEN_LORA,   &fa_extra
     },
     {
-        LV_SYMBOL_ENVELOPE,"Mailbox",   "Inbox & Send",
-        lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES
+        LV_SYMBOL_ENVELOPE,"Mailbox",    "Inbox & Send",
+        lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES, nullptr
     },
     {
-        LV_SYMBOL_LOOP,"NFC",           "NFC Reader",
-        lv_color_make(0, 200, 160),   UM_SCREEN_NFC
+        UM_SYMBOL_NFC,    "NFC",        "NFC Reader",
+        lv_color_make(0, 200, 160),   UM_SCREEN_NFC,    &fa_extra
     },
     {
-        LV_SYMBOL_SD_CARD,"Storage",    "SD Card files",
-        lv_color_make(80, 160, 100),  UM_SCREEN_SD
+        LV_SYMBOL_SD_CARD, "Storage",    "SD Card files",
+        lv_color_make(80, 160, 100),  UM_SCREEN_SD,     nullptr
     },
     {
-        LV_SYMBOL_SETTINGS,"Settings",  "Device Config",
-        lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS
+        LV_SYMBOL_SETTINGS,"Settings",   "Device Config",
+        lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS, nullptr
     },
     {
-        LV_SYMBOL_LIST,"Info",          "System & OTA",
-        lv_color_make(120, 80, 220),  UM_SCREEN_INFO
+        LV_SYMBOL_LIST,    "Info",       "System & OTA",
+        lv_color_make(120, 80, 220),  UM_SCREEN_INFO,   nullptr
     },
     {
-        LV_SYMBOL_WARNING,"Help",       "About & Help",
-        lv_color_make(220, 50, 50),   UM_SCREEN_HELP
+        LV_SYMBOL_WARNING, "Help",       "About & Help",
+        lv_color_make(220, 50, 50),   UM_SCREEN_HELP,   nullptr
     },
 };
 static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
@@ -240,7 +245,7 @@ static void menu_topbar_update_cb(lv_timer_t *)
     // ---- App / server label ----
     if (menu_app_lbl) {
         if (um_msg_server_name[0] != '\0') {
-            lv_label_set_text_fmt(menu_app_lbl, LV_SYMBOL_ENVELOPE "  %s", um_msg_server_name);
+            lv_label_set_text_fmt(menu_app_lbl, UM_SYMBOL_ANTENNA "  %s", um_msg_server_name);
             lv_obj_set_style_text_color(menu_app_lbl, lv_color_make(0, 200, 80), LV_PART_MAIN);
         } else {
             lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh Pager");
@@ -368,8 +373,8 @@ void um_menu_create()
 
     // LoRa background indicator: orange when LoRa keeps listening off-screen
     menu_lora_icon = lv_label_create(right_box);
-    lv_label_set_text(menu_lora_icon, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_font(menu_lora_icon, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_label_set_text(menu_lora_icon, UM_SYMBOL_ANTENNA);
+    lv_obj_set_style_text_font(menu_lora_icon, &fa_extra_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_lora_icon,
                                 um_lora_background_active() ? um_col_orange() : um_col_text_inactive(),
                                 LV_PART_MAIN);
@@ -476,7 +481,8 @@ void um_menu_create()
         } else {
             lv_obj_t *ico = lv_label_create(tile);
             lv_label_set_text(ico, TILES[i].symbol);
-            lv_obj_set_style_text_font(ico, &lv_font_montserrat_40, LV_PART_MAIN);
+            const lv_font_t *ico_font = TILES[i].font ? TILES[i].font : &lv_font_montserrat_40;
+            lv_obj_set_style_text_font(ico, ico_font, LV_PART_MAIN);
             lv_obj_set_style_text_color(ico, TILES[i].accent, LV_PART_MAIN);
         }
 

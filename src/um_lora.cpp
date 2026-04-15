@@ -1,11 +1,15 @@
 
 #include <Arduino.h>
+#ifndef SIM_BUILD
 #include <ArduinoJson.h>
+#endif
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
 #include <ctype.h>
 #include <lvgl.h>
+#ifndef SIM_BUILD
 #include <esp_mac.h>
+#endif
 #include "um_nav.h"
 #include "um_theme.h"
 #include "um_shared.h"
@@ -191,6 +195,7 @@ void lora_queue_message(const char *msg, uint8_t appId)
     sanitized[sanitized_len] = '\0';
     if (sanitized_len == 0) return;
 
+#ifndef SIM_BUILD
     String payload;
     while (sanitized_len > 0) {
         sanitized[sanitized_len] = '\0';
@@ -210,6 +215,7 @@ void lora_queue_message(const char *msg, uint8_t appId)
     lora_msg_app_id = appId;
     lora_msg_send_req = true;
     lora_log_push("[TX] Message queued");
+#endif // !SIM_BUILD
 }
 
 static void lora_compose_update_count()
@@ -437,8 +443,10 @@ static void lora_process_command(const MeshPacket *pkt, const char *payload, siz
         lora_log_push("[CMD] info sent");
     } else if (strcmp(command, "reboot") == 0) {
         lora_log_push("[CMD] Rebooting...");
+#ifndef SIM_BUILD
         delay(100);
         ESP.restart();
+#endif
     } else {
         lora_log_push("[CMD] Unsupported");
     }
@@ -446,6 +454,7 @@ static void lora_process_command(const MeshPacket *pkt, const char *payload, siz
 
 static void lora_process_json_message(const MeshPacket *pkt, const char *payload, size_t plen)
 {
+#ifndef SIM_BUILD
     if (!payload || plen == 0 || payload[0] != '{') return;
 
     JsonDocument jdoc;
@@ -516,6 +525,7 @@ static void lora_process_json_message(const MeshPacket *pkt, const char *payload
             um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
         }
     }
+#endif // !SIM_BUILD
 }
 
 // -------------------------------------------------------
@@ -608,6 +618,7 @@ static void lora_mesh_task(void *param)
         // Test message — broadcast on current frequency, lora_tx_packet re-arms RX
         if (lora_test_req) {
             lora_test_req = false;
+#ifndef SIM_BUILD
             static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
             MeshPacket pkt = {};
             pkt.type       = MESH_TYPE_DATA;
@@ -628,6 +639,7 @@ static void lora_mesh_task(void *param)
             snprintf(line, sizeof(line), "[TX] Testmessage on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
             um_toast_show(LV_SYMBOL_UPLOAD, "LoRa test sent");
+#endif // !SIM_BUILD
         }
 
         // Poll for incoming packet
