@@ -29,7 +29,7 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        UM_SYMBOL_WIFI,    "UniMesh",    "ESPNow Mesh",
+        UM_SYMBOL_WIFI,    "UniMesh",    "ESP-Now",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   &um_icons
     },
     {
@@ -435,8 +435,9 @@ void um_menu_create()
     lv_obj_set_flex_grow(tile_row, 1);
     lv_obj_set_style_bg_color(tile_row, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(tile_row, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(tile_row, 10, LV_PART_MAIN);
-    lv_obj_set_style_pad_column(tile_row, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(tile_row, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(tile_row, 6, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(tile_row, 8, LV_PART_MAIN);
     lv_obj_set_scroll_dir(tile_row, LV_DIR_HOR);
     lv_obj_set_scrollbar_mode(tile_row, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_scroll_snap_x(tile_row, LV_SCROLL_SNAP_NONE);
@@ -449,7 +450,7 @@ void um_menu_create()
     // tile_row content width = screen_w - 2*pad(10) = screen_w - 20
     // 4 tiles + 3 gaps of 10px each = 3*10 = 30 consumed by gaps
     lv_coord_t screen_w = lv_display_get_horizontal_resolution(lv_display_get_default());
-    lv_coord_t tile_w   = (screen_w - 20 - 30) / 4;
+    lv_coord_t tile_w   = (screen_w - 16 - 24) / 4;
 
     for (int i = 0; i < TILE_COUNT; i++) {
         // Card container
@@ -462,11 +463,11 @@ void um_menu_create()
         lv_obj_set_style_border_color(tile, um_col_border(), LV_PART_MAIN);
         lv_obj_set_style_border_width(tile, 1, LV_PART_MAIN);
         lv_obj_set_style_shadow_width(tile, 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_all(tile, 8, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(tile, 6, LV_PART_MAIN);
         lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_flex_flow(tile, LV_FLEX_FLOW_COLUMN);
         lv_obj_set_flex_align(tile, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_style_pad_row(tile, 6, LV_PART_MAIN);
+        lv_obj_set_style_pad_row(tile, 4, LV_PART_MAIN);
         lv_obj_add_flag(tile, LV_OBJ_FLAG_CLICKABLE);
 
         // Big symbol / icon — tile 0 uses the logo PNG, others use a symbol glyph
@@ -481,7 +482,7 @@ void um_menu_create()
         } else {
             lv_obj_t *ico = lv_label_create(tile);
             lv_label_set_text(ico, TILES[i].symbol);
-            const lv_font_t *ico_font = TILES[i].font ? TILES[i].font : &lv_font_montserrat_40;
+            const lv_font_t *ico_font = TILES[i].font ? TILES[i].font : &lv_font_montserrat_48;
             lv_obj_set_style_text_font(ico, ico_font, LV_PART_MAIN);
             lv_obj_set_style_text_color(ico, TILES[i].accent, LV_PART_MAIN);
         }
@@ -495,9 +496,9 @@ void um_menu_create()
         // Subtitle
         lv_obj_t *sub_lbl = lv_label_create(tile);
         lv_label_set_text(sub_lbl, TILES[i].subtitle);
-        lv_obj_set_style_text_font(sub_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+        lv_obj_set_style_text_font(sub_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
         lv_obj_set_style_text_color(sub_lbl, um_col_text_dim(), LV_PART_MAIN);
-        lv_label_set_long_mode(sub_lbl, LV_LABEL_LONG_WRAP);
+        lv_label_set_long_mode(sub_lbl, LV_LABEL_LONG_CLIP);
         lv_obj_set_width(sub_lbl, lv_pct(100));
         lv_obj_set_style_text_align(sub_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
         // Store pointer for Messages tile so topbar timer can update the badge
@@ -526,7 +527,7 @@ void um_menu_create()
 
     lv_obj_t *hint = lv_obj_create(menu_root);
     lv_obj_set_width(hint, lv_pct(100));
-    lv_obj_set_height(hint, 18);
+    lv_obj_set_height(hint, 14);
     lv_obj_set_style_bg_color(hint, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hint, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(hint, 12, LV_PART_MAIN);
