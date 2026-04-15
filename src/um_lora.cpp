@@ -73,6 +73,7 @@ static const uint32_t lora_tx_airtime_ms[] = {
 // used as: lora_tx_airtime_ms[lora_sf_idx]
 
 #define LORA_AUTO_ANNOUNCE_INTERVAL_MS 120000UL
+#define LORA_MSG_MAX_LEN 180
 
 enum LoraStatusState {
     LORA_STATUS_LISTENING = 0,
@@ -87,9 +88,11 @@ static uint8_t lora_my_mac[6]             = {};
 static volatile bool lora_test_req        = false;
 static volatile bool lora_announce_req    = false;
 static volatile bool lora_freq_change_req = false;
+static volatile bool lora_msg_send_req    = false;
 static volatile uint8_t lora_status_state = LORA_STATUS_LISTENING;
 static bool lora_auto_announce_on_open    = true;
 static uint32_t lora_auto_announce_ms     = 0;
+static char lora_msg_outbox[LORA_MSG_MAX_LEN + 1] = {};
 
 // -------------------------------------------------------
 // Log buffer
@@ -111,11 +114,15 @@ static TaskHandle_t      lora_task  = NULL;
 // LVGL state
 // -------------------------------------------------------
 static lv_obj_t   *lora_root       = NULL;
+static lv_obj_t   *lora_compose_btn = NULL;
+static lv_obj_t   *lora_home_btn   = NULL;
 static lv_obj_t   *lora_auto_lbl   = NULL;
 static lv_obj_t   *lora_status_lbl = NULL;
 static lv_obj_t   *lora_info_lbl   = NULL;
 static lv_obj_t   *lora_log_cont   = NULL;
 static lv_obj_t   *lora_popup_cont = NULL;
+static lv_obj_t   *lora_compose_cont = NULL;
+static lv_obj_t   *lora_compose_ta = NULL;
 static lv_timer_t *lora_timer      = NULL;
 static lv_timer_t *lora_bsp_timer  = NULL;
 
@@ -131,8 +138,32 @@ static lv_timer_t *lora_bsp_timer  = NULL;
 // Forward declarations
 static void lora_popup_close();
 static void lora_popup_open();
+static void lora_compose_close();
+static void lora_compose_open();
 static void lora_key_bsp_cb(lv_event_t *e);
 static void lora_rebuild_rows();
+static void lora_log_push(const char *line);
+
+static void lora_queue_message(const char *msg)
+{
+    if (!msg) return;
+
+    char sanitized[LORA_MSG_MAX_LEN + 1] = {};
+    size_t out_idx = 0;
+    for (size_t i = 0; msg[i] != '\0' && out_idx < LORA_MSG_MAX_LEN; i++) {
+        uint8_t b = (uint8_t)msg[i];
+        if (b == '\r' || b == '\n') b = ' ';
+        if (b < 0x20 || b >= 0x7F) continue;
+        sanitized[out_idx++] = (char)b;
+    }
+    sanitized[out_idx] = '\0';
+    if (out_idx == 0) return;
+
+    strncpy(lora_msg_outbox, sanitized, sizeof(lora_msg_outbox) - 1);
+    lora_msg_outbox[sizeof(lora_msg_outbox) - 1] = '\0';
+    lora_msg_send_req = true;
+    lora_log_push("[TX] Message queued");
+}
 
 // -------------------------------------------------------
 // Log push  (mutex-safe, callable from task or UI)
@@ -317,6 +348,24 @@ static void lora_mesh_task(void *param)
             lora_log_push(line);
         }
 
+        if (lora_msg_send_req) {
+            lora_msg_send_req = false;
+            static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+            MeshPacket pkt = {};
+            pkt.type       = MESH_TYPE_DATA;
+            pkt.ttl        = 4;
+            pkt.msgId      = esp_random() % 1000000000u;
+            memcpy(pkt.destMac, broadcast, 6);
+            memcpy(pkt.srcMac,  lora_my_mac, 6);
+            pkt.appId      = 0x01;
+            pkt.payloadLen = (uint8_t)strnlen(lora_msg_outbox, sizeof(lora_msg_outbox) - 1);
+            memcpy(pkt.payload, lora_msg_outbox, pkt.payloadLen);
+            lora_tx_packet(&pkt);
+            char line[LORA_LOG_COL];
+            snprintf(line, sizeof(line), "[TX] Message on %.3f MHz", lora_freqs[lora_freq_idx]);
+            lora_log_push(line);
+        }
+
         // Test message — broadcast on current frequency, lora_tx_packet re-arms RX
         if (lora_test_req) {
             lora_test_req = false;
@@ -449,7 +498,7 @@ static void lora_rebuild_rows()
     }
 
     // Only steal focus to the log if the popup is not open
-    if (!lora_popup_cont && g && lv_obj_get_child_count(lora_log_cont) > 0)
+    if (!lora_popup_cont && !lora_compose_cont && g && lv_obj_get_child_count(lora_log_cont) > 0)
         lv_group_focus_obj(lv_obj_get_child(lora_log_cont, 0));
 
 #ifndef SIM_BUILD
@@ -469,6 +518,29 @@ static void lora_popup_close()
     lora_popup_cont = NULL;
     if (g && lora_log_cont && lv_obj_get_child_count(lora_log_cont) > 0)
         lv_group_focus_obj(lv_obj_get_child(lora_log_cont, 0));
+}
+
+static void lora_compose_close()
+{
+    if (!lora_compose_cont) return;
+    lv_group_t *g = lv_group_get_default();
+    lv_obj_del(lora_compose_cont);
+    lora_compose_cont = NULL;
+    lora_compose_ta = NULL;
+    if (g && lora_compose_btn)
+        lv_group_focus_obj(lora_compose_btn);
+}
+
+static void lora_compose_submit()
+{
+    if (!lora_compose_ta) return;
+    const char *msg = lv_textarea_get_text(lora_compose_ta);
+    if (!msg || !msg[0]) {
+        lora_log_push("[TX] Empty message ignored");
+        return;
+    }
+    lora_queue_message(msg);
+    lora_compose_close();
 }
 
 // Default radio settings — SF9, 22 dBm, freq index 0
@@ -754,6 +826,108 @@ static void lora_popup_open()
     }
 }
 
+static void lora_compose_open()
+{
+    if (lora_compose_cont) return;
+
+    lora_compose_cont = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(lora_compose_cont, lv_pct(100), lv_pct(100));
+    lv_obj_set_pos(lora_compose_cont, 0, 0);
+    lv_obj_set_style_bg_color(lora_compose_cont, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(lora_compose_cont, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(lora_compose_cont, 2, LV_PART_MAIN);
+    lv_obj_set_style_radius(lora_compose_cont, 8, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(lora_compose_cont, 24, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(lora_compose_cont, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(lora_compose_cont, LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lora_compose_cont, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(lora_compose_cont, 6, LV_PART_MAIN);
+    lv_obj_set_flex_flow(lora_compose_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(lora_compose_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(lora_compose_cont, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *title = lv_label_create(lora_compose_cont);
+    lv_label_set_text(title, LV_SYMBOL_ENVELOPE "  Compose LoRa Message");
+    lv_obj_set_style_text_color(title, um_col_ok(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
+
+    lv_obj_t *hint = lv_label_create(lora_compose_cont);
+    lv_label_set_text(hint, "Type a short message. Enter sends.");
+    lv_obj_set_width(hint, lv_pct(100));
+    lv_obj_set_style_text_color(hint, um_col_text_dim(), LV_PART_MAIN);
+
+    lora_compose_ta = lv_textarea_create(lora_compose_cont);
+    lv_obj_set_width(lora_compose_ta, lv_pct(100));
+    lv_obj_set_height(lora_compose_ta, 72);
+    lv_textarea_set_placeholder_text(lora_compose_ta, "Message to broadcast over LoRa");
+    lv_textarea_set_max_length(lora_compose_ta, LORA_MSG_MAX_LEN);
+    lv_textarea_set_one_line(lora_compose_ta, false);
+    lv_obj_set_style_bg_color(lora_compose_ta, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(lora_compose_ta, um_col_text(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(lora_compose_ta, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(lora_compose_ta, 1, LV_PART_MAIN);
+    lv_obj_add_flag(lora_compose_ta, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(lora_compose_ta, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ENTER) {
+            lora_compose_submit();
+        } else if (key == LV_KEY_ESC) {
+            lora_compose_close();
+        }
+    }, LV_EVENT_KEY, NULL);
+
+    lv_obj_t *btn_row = lv_obj_create(lora_compose_cont);
+    lv_obj_set_width(btn_row, lv_pct(100));
+    lv_obj_set_height(btn_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(btn_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(btn_row, 6, LV_PART_MAIN);
+    lv_obj_clear_flag(btn_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *send_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(send_btn, 1);
+    lv_obj_set_style_bg_color(send_btn, UM_COL(0,50,20, 200,242,215), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(send_btn, um_col_focus_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(send_btn, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(send_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(send_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(send_btn, 6, LV_PART_MAIN);
+    lv_obj_add_flag(send_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(send_btn, [](lv_event_t *) { lora_compose_submit(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *send_lbl = lv_label_create(send_btn);
+    lv_label_set_text(send_lbl, LV_SYMBOL_UPLOAD "  Send");
+    lv_obj_set_style_text_color(send_lbl, um_col_ok(), LV_PART_MAIN);
+    lv_obj_center(send_lbl);
+
+    lv_obj_t *cancel_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(cancel_btn, 1);
+    lv_obj_set_style_bg_color(cancel_btn, UM_COL(30,20,20, 242,215,215), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(cancel_btn, um_col_focus_red(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(cancel_btn, UM_COL(80,40,40, 210,165,165), LV_PART_MAIN);
+    lv_obj_set_style_border_width(cancel_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(cancel_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(cancel_btn, 6, LV_PART_MAIN);
+    lv_obj_add_flag(cancel_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *) { lora_compose_close(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *cancel_lbl = lv_label_create(cancel_btn);
+    lv_label_set_text(cancel_lbl, LV_SYMBOL_CLOSE "  Cancel");
+    lv_obj_set_style_text_color(cancel_lbl, UM_COL(180,100,100, 150,35,35), LV_PART_MAIN);
+    lv_obj_center(cancel_lbl);
+
+    lv_group_t *g = lv_group_get_default();
+    if (g) {
+        lv_group_add_obj(g, lora_compose_ta);
+        lv_group_add_obj(g, send_btn);
+        lv_group_add_obj(g, cancel_btn);
+        lv_group_focus_obj(lora_compose_ta);
+    }
+}
+
 // -------------------------------------------------------
 // Long-press backspace → open options popup
 // -------------------------------------------------------
@@ -773,6 +947,7 @@ static void lora_key_bsp_cb(lv_event_t *e)
         lv_timer_set_repeat_count(lora_bsp_timer, 1);
     } else if (key == LV_KEY_ESC) {
         if (lora_popup_cont) lora_popup_close();
+        else if (lora_compose_cont) lora_compose_close();
         else um_nav_back();
     } else {
         if (lora_bsp_timer) { lv_timer_del(lora_bsp_timer); lora_bsp_timer = NULL; }
@@ -848,27 +1023,45 @@ void um_lora_create()
     lv_label_set_text(lora_auto_lbl, lora_auto_announce_on_open ? LV_SYMBOL_UPLOAD : "");
     lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
 
-    lv_obj_t *back_btn = lv_btn_create(hdr_actions);
-    lv_obj_set_size(back_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(back_btn, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(back_btn, um_col_focus_cyan(),
+    lora_compose_btn = lv_btn_create(hdr_actions);
+    lv_obj_set_size(lora_compose_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(lora_compose_btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lora_compose_btn, um_col_focus_cyan(),
                               (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_bg_opa(back_btn, LV_OPA_COVER,
+    lv_obj_set_style_bg_opa(lora_compose_btn, LV_OPA_COVER,
                             (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
-    lv_obj_set_style_border_width(back_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(back_btn, 2, LV_PART_MAIN);
-    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(back_btn, lora_key_bsp_cb, LV_EVENT_KEY, NULL);
-    lv_obj_t *back_lbl = lv_label_create(back_btn);
+    lv_obj_set_style_border_width(lora_compose_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(lora_compose_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lora_compose_btn, 2, LV_PART_MAIN);
+    lv_obj_add_event_cb(lora_compose_btn, [](lv_event_t *) { lora_compose_open(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(lora_compose_btn, lora_key_bsp_cb, LV_EVENT_KEY, NULL);
+    lv_obj_t *compose_lbl = lv_label_create(lora_compose_btn);
+    lv_label_set_text(compose_lbl, LV_SYMBOL_ENVELOPE);
+    lv_obj_set_style_text_color(compose_lbl, um_col_ok(), LV_PART_MAIN);
+    lv_obj_center(compose_lbl);
+
+    lora_home_btn = lv_btn_create(hdr_actions);
+    lv_obj_set_size(lora_home_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(lora_home_btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(lora_home_btn, um_col_focus_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(lora_home_btn, LV_OPA_COVER,
+                            (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_width(lora_home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(lora_home_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lora_home_btn, 2, LV_PART_MAIN);
+    lv_obj_add_event_cb(lora_home_btn, [](lv_event_t *) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(lora_home_btn, lora_key_bsp_cb, LV_EVENT_KEY, NULL);
+    lv_obj_t *back_lbl = lv_label_create(lora_home_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(back_lbl, um_col_orange(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 
     lv_group_t *g = lv_group_get_default();
     if (g) {
-        lv_group_add_obj(g, back_btn);
-        lv_group_focus_obj(back_btn);
+        lv_group_add_obj(g, lora_home_btn);
+        lv_group_add_obj(g, lora_compose_btn);
+        lv_group_focus_obj(lora_home_btn);
     }
 
     // --- Divider ---
@@ -926,16 +1119,20 @@ void um_lora_destroy()
     if (lora_timer)      { lv_timer_del(lora_timer);      lora_timer      = NULL; }
     if (lora_bsp_timer)  { lv_timer_del(lora_bsp_timer);  lora_bsp_timer  = NULL; }
     if (lora_popup_cont) { lv_obj_del(lora_popup_cont);   lora_popup_cont = NULL; }
+    if (lora_compose_cont) { lv_obj_del(lora_compose_cont); lora_compose_cont = NULL; }
 
     lv_group_t *g = lv_group_get_default();
     if (g) lv_group_remove_all_objs(g);
 
     lv_obj_del(lora_root);
     lora_root       = NULL;
+    lora_compose_btn = NULL;
+    lora_home_btn   = NULL;
     lora_auto_lbl   = NULL;
     lora_status_lbl = NULL;
     lora_info_lbl   = NULL;
     lora_log_cont   = NULL;
+    lora_compose_ta = NULL;
 
 #ifndef SIM_BUILD
     if (lora_task) { vTaskDelete(lora_task); lora_task = NULL; }
