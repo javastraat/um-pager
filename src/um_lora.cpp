@@ -111,6 +111,7 @@ static TaskHandle_t      lora_task  = NULL;
 // LVGL state
 // -------------------------------------------------------
 static lv_obj_t   *lora_root       = NULL;
+static lv_obj_t   *lora_auto_lbl   = NULL;
 static lv_obj_t   *lora_status_lbl = NULL;
 static lv_obj_t   *lora_info_lbl   = NULL;
 static lv_obj_t   *lora_log_cont   = NULL;
@@ -376,6 +377,15 @@ static void lora_timer_cb(lv_timer_t *t)
         } else {
             lv_label_set_text(lora_status_lbl, "Listening");
             lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
+        }
+    }
+
+    if (lora_auto_lbl) {
+        if (lora_auto_announce_on_open) {
+            lv_label_set_text(lora_auto_lbl, LV_SYMBOL_UPLOAD);
+            lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
+        } else {
+            lv_label_set_text(lora_auto_lbl, "");
         }
     }
 
@@ -818,6 +828,10 @@ void um_lora_create()
     lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " LoRa Mesh");
     lv_obj_set_style_text_color(hdr_title, um_col_orange(), LV_PART_MAIN);
 
+    lora_auto_lbl = lv_label_create(hdr);
+    lv_label_set_text(lora_auto_lbl, lora_auto_announce_on_open ? LV_SYMBOL_UPLOAD : "");
+    lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
+
     lora_status_lbl = lv_label_create(hdr);
     lv_label_set_text(lora_status_lbl, "Listening");
     lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
@@ -906,6 +920,7 @@ void um_lora_destroy()
 
     lv_obj_del(lora_root);
     lora_root       = NULL;
+    lora_auto_lbl   = NULL;
     lora_status_lbl = NULL;
     lora_info_lbl   = NULL;
     lora_log_cont   = NULL;
