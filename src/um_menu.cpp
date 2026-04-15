@@ -72,6 +72,14 @@ static lv_timer_t *menu_topbar_timer  = NULL;
 static lv_obj_t   *menu_msg_badge_lbl = NULL;  // Messages tile unread badge
 static lv_obj_t   *menu_bat_lbl       = NULL;  // Topbar battery indicator
 
+static void menu_reset_indev_state()
+{
+    lv_indev_t *indev = NULL;
+    while ((indev = lv_indev_get_next(indev)) != NULL) {
+        lv_indev_reset(indev, NULL);
+    }
+}
+
 // -------------------------------------------------------
 // Tile focus / unfocus visuals
 // -------------------------------------------------------
@@ -108,6 +116,18 @@ static void menu_focus_tile(int idx)
     lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
 }
 
+static void menu_focus_next_tile()
+{
+    if (menu_focused < TILE_COUNT - 1)
+        menu_focus_tile(menu_focused + 1);
+}
+
+static void menu_focus_prev_tile()
+{
+    if (menu_focused > 0)
+        menu_focus_tile(menu_focused - 1);
+}
+
 // -------------------------------------------------------
 // Input handler — rotary encoder events routed here via
 // lv_group so we get LV_EVENT_KEY on the focused tile
@@ -116,13 +136,11 @@ static void menu_tile_key_cb(lv_event_t *e)
 {
     uint32_t key = lv_event_get_key(e);
 
-    if (key == LV_KEY_RIGHT || key == LV_KEY_DOWN) {
-        if (menu_focused < TILE_COUNT - 1)
-            menu_focus_tile(menu_focused + 1);
+    if (key == LV_KEY_RIGHT || key == LV_KEY_DOWN || key == LV_KEY_NEXT) {
+        menu_focus_next_tile();
         lv_event_stop_processing(e); // prevent LVGL group from also advancing focus
-    } else if (key == LV_KEY_LEFT || key == LV_KEY_UP) {
-        if (menu_focused > 0)
-            menu_focus_tile(menu_focused - 1);
+    } else if (key == LV_KEY_LEFT || key == LV_KEY_UP || key == LV_KEY_PREV) {
+        menu_focus_prev_tile();
         lv_event_stop_processing(e); // prevent LVGL group from also advancing focus
     } else if (key == LV_KEY_ENTER) {
         um_haptic_select();
@@ -145,11 +163,18 @@ static void menu_tile_click_cb(lv_event_t *e)
 static void menu_tile_focused_cb(lv_event_t *e)
 {
     lv_obj_t *tile = (lv_obj_t *)lv_event_get_target(e);
+    int found = -1;
     for (int i = 0; i < TILE_COUNT; i++) {
         menu_apply_focus(i, menu_tiles[i] == tile);
-        if (menu_tiles[i] == tile) menu_focused = i;
+        if (menu_tiles[i] == tile) found = i;
     }
-    lv_obj_scroll_to_view(tile, LV_ANIM_ON);
+    if (found >= 0) {
+        menu_focused = found;
+        lv_obj_scroll_to_view(tile, LV_ANIM_ON);
+    } else {
+        // Focus landed on a non-tile object (shouldn't happen); reset to first tile
+        menu_focus_tile(0);
+    }
 }
 
 // Called when the power button in the top bar receives focus —
@@ -163,7 +188,13 @@ static void menu_pwr_focused_cb(lv_event_t *e)
 static void menu_pwr_key_cb(lv_event_t *e)
 {
     uint32_t key = lv_event_get_key(e);
-    if (key == LV_KEY_LEFT || key == LV_KEY_RIGHT || key == LV_KEY_UP || key == LV_KEY_DOWN) {
+    if (key == LV_KEY_RIGHT || key == LV_KEY_DOWN || key == LV_KEY_NEXT) {
+        menu_focus_next_tile();
+        lv_event_stop_processing(e);
+    } else if (key == LV_KEY_LEFT || key == LV_KEY_UP || key == LV_KEY_PREV) {
+        menu_focus_prev_tile();
+        lv_event_stop_processing(e);
+    } else if (key == LV_KEY_ENTER) {
         menu_focus_tile(menu_focused);
         lv_event_stop_processing(e);
     }
@@ -271,6 +302,23 @@ void um_menu_create()
     lv_obj_set_flex_flow(menu_root, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(menu_root, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
+    // Defensive: group focus callback to clamp focus to valid tile
+    lv_group_t *g = lv_group_get_default();
+    if (g) {
+        lv_group_set_focus_cb(g, [](lv_group_t *grp) {
+            lv_obj_t *focused = lv_group_get_focused(grp);
+            bool valid = false;
+            for (int i = 0; i < TILE_COUNT; ++i) {
+                if (menu_tiles[i] == focused) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (!valid && menu_tiles[menu_focused]) {
+                lv_group_focus_obj(menu_tiles[menu_focused]);
+            }
+        });
+    }
     // ---- Top bar ----
     lv_obj_t *topbar = lv_obj_create(menu_root);
     lv_obj_set_width(topbar, lv_pct(100));
@@ -390,7 +438,6 @@ void um_menu_create()
     lv_obj_set_flex_flow(tile_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(tile_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    lv_group_t *g = lv_group_get_default();
     if (g) lv_group_add_obj(g, pwr_btn);
 
     // Fixed tile width so exactly 4 tiles are visible at once.
@@ -503,7 +550,10 @@ void um_menu_destroy()
     menu_msg_badge_lbl = NULL;
     menu_bat_lbl       = NULL;
     lv_group_t *g = lv_group_get_default();
-    if (g) lv_group_remove_all_objs(g);
+    if (g) {
+        menu_reset_indev_state();
+        lv_group_remove_all_objs(g);
+    }
     lv_obj_del(menu_root);
     menu_root = NULL;
     for (int i = 0; i < TILE_COUNT; i++) menu_tiles[i] = NULL;
