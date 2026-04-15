@@ -736,7 +736,7 @@ void um_lora_create()
 #endif
 
     lora_test_req        = false;
-    lora_announce_req    = false;
+    lora_announce_req    = true;
     lora_freq_change_req = false;
     lora_status_state    = LORA_STATUS_LISTENING;
     lora_logHead         = 0;
