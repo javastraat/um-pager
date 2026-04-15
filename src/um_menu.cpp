@@ -24,11 +24,11 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,"UniMesh",       "Connect & View",
+        LV_SYMBOL_WIFI,"UniMesh",       "ESPNow Mesh",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
-        LV_SYMBOL_WIFI,"LoRa",          "Connect & View",
+        LV_SYMBOL_WIFI,"LoRa",          "LoRa Radio",
         lv_color_make(255, 120, 0),   UM_SCREEN_LORA
     },
     {
