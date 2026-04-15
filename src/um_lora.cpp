@@ -828,15 +828,27 @@ void um_lora_create()
     lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " LoRa Mesh");
     lv_obj_set_style_text_color(hdr_title, um_col_orange(), LV_PART_MAIN);
 
-    lora_auto_lbl = lv_label_create(hdr);
-    lv_label_set_text(lora_auto_lbl, lora_auto_announce_on_open ? LV_SYMBOL_UPLOAD : "");
-    lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
-
     lora_status_lbl = lv_label_create(hdr);
     lv_label_set_text(lora_status_lbl, "Listening");
     lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
 
-    lv_obj_t *back_btn = lv_btn_create(hdr);
+    lv_obj_t *hdr_actions = lv_obj_create(hdr);
+    lv_obj_set_width(hdr_actions, LV_SIZE_CONTENT);
+    lv_obj_set_height(hdr_actions, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(hdr_actions, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(hdr_actions, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(hdr_actions, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(hdr_actions, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(hdr_actions, 4, LV_PART_MAIN);
+    lv_obj_set_flex_flow(hdr_actions, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(hdr_actions, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(hdr_actions, LV_OBJ_FLAG_SCROLLABLE);
+
+    lora_auto_lbl = lv_label_create(hdr_actions);
+    lv_label_set_text(lora_auto_lbl, lora_auto_announce_on_open ? LV_SYMBOL_UPLOAD : "");
+    lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
+
+    lv_obj_t *back_btn = lv_btn_create(hdr_actions);
     lv_obj_set_size(back_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(back_btn, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_bg_color(back_btn, um_col_focus_cyan(),
