@@ -72,6 +72,8 @@ static const uint32_t lora_tx_airtime_ms[] = {
 };
 // used as: lora_tx_airtime_ms[lora_sf_idx]
 
+#define LORA_AUTO_ANNOUNCE_INTERVAL_MS 120000UL
+
 enum LoraStatusState {
     LORA_STATUS_LISTENING = 0,
     LORA_STATUS_TRANSMITTING,
@@ -87,6 +89,7 @@ static volatile bool lora_announce_req    = false;
 static volatile bool lora_freq_change_req = false;
 static volatile uint8_t lora_status_state = LORA_STATUS_LISTENING;
 static bool lora_auto_announce_on_open    = true;
+static uint32_t lora_auto_announce_ms     = 0;
 
 // -------------------------------------------------------
 // Log buffer
@@ -274,6 +277,13 @@ static void lora_mesh_task(void *param)
     lora_log_push(start_line);
 
     for (;;) {
+        if (lora_auto_announce_on_open && !lora_announce_req &&
+            (uint32_t)(millis() - lora_auto_announce_ms) >= LORA_AUTO_ANNOUNCE_INTERVAL_MS) {
+            lora_announce_req = true;
+            lora_auto_announce_ms = millis();
+            lora_log_push("[TX] Auto announce queued");
+        }
+
         // Frequency change from popup
         if (lora_freq_change_req) {
             lora_freq_change_req = false;
@@ -569,7 +579,7 @@ static void lora_popup_open()
         lora_pwr_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
-    // --- Auto announce on open ---
+    // --- Auto announce ---
     lv_obj_t *auto_row = lv_obj_create(lora_popup_cont);
     lv_obj_set_width(auto_row, lv_pct(100));
     lv_obj_set_height(auto_row, LV_SIZE_CONTENT);
@@ -582,7 +592,7 @@ static void lora_popup_open()
     lv_obj_set_flex_align(auto_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *auto_lbl = lv_label_create(auto_row);
-    lv_label_set_text(auto_lbl, "Auto announce on open");
+    lv_label_set_text(auto_lbl, "Auto announce (after open - 120sec)");
     lv_obj_set_style_text_color(auto_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_set_flex_grow(auto_lbl, 1);
 
@@ -598,6 +608,7 @@ static void lora_popup_open()
     lv_obj_add_event_cb(auto_sw, [](lv_event_t *e) {
         lv_obj_t *sw = (lv_obj_t *)lv_event_get_target(e);
         lora_auto_announce_on_open = lv_obj_has_state(sw, LV_STATE_CHECKED);
+        lora_auto_announce_ms = millis();
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
     // --- Send Test button ---
@@ -772,6 +783,7 @@ void um_lora_create()
     lora_announce_req    = lora_auto_announce_on_open;
     lora_freq_change_req = false;
     lora_status_state    = LORA_STATUS_LISTENING;
+    lora_auto_announce_ms = millis();
     lora_logHead         = 0;
     lora_logCount  = 0;
     lora_log_dirty = false;
