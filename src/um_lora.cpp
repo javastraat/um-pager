@@ -155,17 +155,31 @@ static void lora_queue_message(const char *msg, uint8_t appId)
     if (!msg) return;
 
     char sanitized[LORA_MSG_MAX_LEN + 1] = {};
-    size_t out_idx = 0;
-    for (size_t i = 0; msg[i] != '\0' && out_idx < LORA_MSG_MAX_LEN; i++) {
+    size_t sanitized_len = 0;
+    for (size_t i = 0; msg[i] != '\0' && sanitized_len < LORA_MSG_MAX_LEN; i++) {
         uint8_t b = (uint8_t)msg[i];
         if (b == '\r' || b == '\n') b = ' ';
         if (b < 0x20 || b >= 0x7F) continue;
-        sanitized[out_idx++] = (char)b;
+        sanitized[sanitized_len++] = (char)b;
     }
-    sanitized[out_idx] = '\0';
-    if (out_idx == 0) return;
+    sanitized[sanitized_len] = '\0';
+    if (sanitized_len == 0) return;
 
-    strncpy(lora_msg_outbox, sanitized, sizeof(lora_msg_outbox) - 1);
+    String payload;
+    while (sanitized_len > 0) {
+        sanitized[sanitized_len] = '\0';
+        JsonDocument doc;
+        doc["name"] = NODE_NAME;
+        doc["msg"] = sanitized;
+        payload = "";
+        serializeJson(doc, payload);
+        if (payload.length() <= LORA_MSG_MAX_LEN) break;
+        sanitized_len--;
+    }
+
+    if (payload.isEmpty()) return;
+
+    strncpy(lora_msg_outbox, payload.c_str(), sizeof(lora_msg_outbox) - 1);
     lora_msg_outbox[sizeof(lora_msg_outbox) - 1] = '\0';
     lora_msg_app_id = appId;
     lora_msg_send_req = true;
@@ -399,10 +413,13 @@ static void lora_mesh_task(void *param)
             memcpy(pkt.destMac, broadcast, 6);
             memcpy(pkt.srcMac,  lora_my_mac, 6);
             pkt.appId      = 0x01; //0x7F;
-            const char *msg = "Test from " NODE_NAME;
-            //const char *msg = NODE_NAME;
-            pkt.payloadLen = (uint8_t)strlen(msg);
-            memcpy(pkt.payload, msg, pkt.payloadLen);
+            JsonDocument doc;
+            doc["name"] = NODE_NAME;
+            doc["msg"] = "Test from " NODE_NAME;
+            String payload;
+            serializeJson(doc, payload);
+            pkt.payloadLen = (uint8_t)payload.length();
+            memcpy(pkt.payload, payload.c_str(), pkt.payloadLen);
             lora_tx_packet(&pkt);
             char line[LORA_LOG_COL];
             snprintf(line, sizeof(line), "[TX] Testmessage on %.3f MHz", lora_freqs[lora_freq_idx]);
@@ -881,7 +898,7 @@ static void lora_compose_open()
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
     lv_obj_t *hint = lv_label_create(lora_compose_cont);
-    lv_label_set_text(hint, "Type a short message. Enter sends.");
+    lv_label_set_text(hint, "Type a short message. Use Send to transmit.");
     lv_obj_set_width(hint, lv_pct(100));
     lv_obj_set_style_text_color(hint, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_set_style_text_font(hint, &lv_font_montserrat_12, LV_PART_MAIN);
@@ -923,6 +940,7 @@ static void lora_compose_open()
     lv_textarea_set_placeholder_text(lora_compose_ta, "Message to broadcast over LoRa");
     lv_textarea_set_max_length(lora_compose_ta, LORA_MSG_MAX_LEN);
     lv_textarea_set_one_line(lora_compose_ta, false);
+    lv_obj_add_state(lora_compose_ta, LV_STATE_EDITED);
     lv_obj_set_style_bg_color(lora_compose_ta, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_text_color(lora_compose_ta, um_col_text(), LV_PART_MAIN);
     lv_obj_set_style_border_color(lora_compose_ta, um_col_border_focus(), LV_PART_MAIN);
@@ -932,9 +950,25 @@ static void lora_compose_open()
         lora_compose_update_count();
     }, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_add_event_cb(lora_compose_ta, [](lv_event_t *e) {
+        lv_obj_t *ta = (lv_obj_t *)lv_event_get_target(e);
         uint32_t key = lv_event_get_key(e);
+        bool editing = lv_obj_has_state(ta, LV_STATE_EDITED);
+        lv_group_t *g = lv_group_get_default();
+
         if (key == LV_KEY_ENTER) {
-            lora_compose_submit();
+            if (editing) {
+                lv_obj_clear_state(ta, LV_STATE_EDITED);
+                if (g) lv_group_set_editing(g, false);
+                if (g) lv_group_focus_next(g);
+            } else {
+                lv_obj_add_state(ta, LV_STATE_EDITED);
+                if (g) lv_group_set_editing(g, true);
+            }
+            lv_event_stop_processing(e);
+        } else if ((key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) && editing) {
+            lv_obj_clear_state(ta, LV_STATE_EDITED);
+            if (g) lv_group_set_editing(g, false);
+            lv_event_stop_processing(e);
         } else if (key == LV_KEY_ESC) {
             lora_compose_close();
         }
