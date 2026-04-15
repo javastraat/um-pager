@@ -9,6 +9,7 @@
 #include "um_theme.h"
 #include "config.h"
 #include "UniversalMesh.h"          // MeshPacket struct + packet type constants
+#include "helpers/um_toast.h"
 #include "radio/hal_interface.h"
 #include "radio/hw_lr1121.h"
 
@@ -90,8 +91,10 @@ static volatile bool lora_announce_req    = false;
 static volatile bool lora_freq_change_req = false;
 static volatile bool lora_msg_send_req    = false;
 static volatile uint8_t lora_status_state = LORA_STATUS_LISTENING;
+static volatile bool lora_announce_show_toast = false;
 static bool lora_auto_announce_on_open    = true;
 static uint32_t lora_auto_announce_ms     = 0;
+static uint8_t lora_msg_app_id            = 0x01;
 static char lora_msg_outbox[LORA_MSG_MAX_LEN + 1] = {};
 
 // -------------------------------------------------------
@@ -123,6 +126,8 @@ static lv_obj_t   *lora_log_cont   = NULL;
 static lv_obj_t   *lora_popup_cont = NULL;
 static lv_obj_t   *lora_compose_cont = NULL;
 static lv_obj_t   *lora_compose_ta = NULL;
+static lv_obj_t   *lora_compose_count_lbl = NULL;
+static lv_obj_t   *lora_compose_app_dd = NULL;
 static lv_timer_t *lora_timer      = NULL;
 static lv_timer_t *lora_bsp_timer  = NULL;
 
@@ -140,11 +145,12 @@ static void lora_popup_close();
 static void lora_popup_open();
 static void lora_compose_close();
 static void lora_compose_open();
+static void lora_compose_update_count();
 static void lora_key_bsp_cb(lv_event_t *e);
 static void lora_rebuild_rows();
 static void lora_log_push(const char *line);
 
-static void lora_queue_message(const char *msg)
+static void lora_queue_message(const char *msg, uint8_t appId)
 {
     if (!msg) return;
 
@@ -161,8 +167,18 @@ static void lora_queue_message(const char *msg)
 
     strncpy(lora_msg_outbox, sanitized, sizeof(lora_msg_outbox) - 1);
     lora_msg_outbox[sizeof(lora_msg_outbox) - 1] = '\0';
+    lora_msg_app_id = appId;
     lora_msg_send_req = true;
     lora_log_push("[TX] Message queued");
+}
+
+static void lora_compose_update_count()
+{
+    if (!lora_compose_ta || !lora_compose_count_lbl) return;
+    size_t len = strlen(lv_textarea_get_text(lora_compose_ta));
+    char buf[24];
+    snprintf(buf, sizeof(buf), "%u/%u", (unsigned)len, (unsigned)LORA_MSG_MAX_LEN);
+    lv_label_set_text(lora_compose_count_lbl, buf);
 }
 
 // -------------------------------------------------------
@@ -312,6 +328,7 @@ static void lora_mesh_task(void *param)
         if (lora_auto_announce_on_open && !lora_announce_req &&
             (uint32_t)(millis() - lora_auto_announce_ms) >= LORA_AUTO_ANNOUNCE_INTERVAL_MS) {
             lora_announce_req = true;
+            lora_announce_show_toast = false;
             lora_auto_announce_ms = millis();
             lora_log_push("[TX] Auto announce queued");
         }
@@ -346,6 +363,10 @@ static void lora_mesh_task(void *param)
             char line[LORA_LOG_COL];
             snprintf(line, sizeof(line), "[TX] Announce on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
+            if (lora_announce_show_toast) {
+                um_toast_show(LV_SYMBOL_UPLOAD, "LoRa announce sent");
+                lora_announce_show_toast = false;
+            }
         }
 
         if (lora_msg_send_req) {
@@ -357,13 +378,14 @@ static void lora_mesh_task(void *param)
             pkt.msgId      = esp_random() % 1000000000u;
             memcpy(pkt.destMac, broadcast, 6);
             memcpy(pkt.srcMac,  lora_my_mac, 6);
-            pkt.appId      = 0x01;
+            pkt.appId      = lora_msg_app_id;
             pkt.payloadLen = (uint8_t)strnlen(lora_msg_outbox, sizeof(lora_msg_outbox) - 1);
             memcpy(pkt.payload, lora_msg_outbox, pkt.payloadLen);
             lora_tx_packet(&pkt);
             char line[LORA_LOG_COL];
-            snprintf(line, sizeof(line), "[TX] Message on %.3f MHz", lora_freqs[lora_freq_idx]);
+            snprintf(line, sizeof(line), "[TX] A%02X message on %.3f MHz", pkt.appId, lora_freqs[lora_freq_idx]);
             lora_log_push(line);
+            um_toast_show(LV_SYMBOL_ENVELOPE, "LoRa message sent");
         }
 
         // Test message — broadcast on current frequency, lora_tx_packet re-arms RX
@@ -385,6 +407,7 @@ static void lora_mesh_task(void *param)
             char line[LORA_LOG_COL];
             snprintf(line, sizeof(line), "[TX] Testmessage on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
+            um_toast_show(LV_SYMBOL_UPLOAD, "LoRa test sent");
         }
 
         // Poll for incoming packet
@@ -527,6 +550,8 @@ static void lora_compose_close()
     lv_obj_del(lora_compose_cont);
     lora_compose_cont = NULL;
     lora_compose_ta = NULL;
+    lora_compose_count_lbl = NULL;
+    lora_compose_app_dd = NULL;
     if (g && lora_compose_btn)
         lv_group_focus_obj(lora_compose_btn);
 }
@@ -539,7 +564,10 @@ static void lora_compose_submit()
         lora_log_push("[TX] Empty message ignored");
         return;
     }
-    lora_queue_message(msg);
+    static const uint8_t app_ids[] = { 0x01, 0x05, 0x06, 0x7F };
+    uint16_t idx = lora_compose_app_dd ? lv_dropdown_get_selected(lora_compose_app_dd) : 0;
+    if (idx >= (sizeof(app_ids) / sizeof(app_ids[0]))) idx = 0;
+    lora_queue_message(msg, app_ids[idx]);
     lora_compose_close();
 }
 
@@ -726,6 +754,7 @@ static void lora_popup_open()
     lv_obj_add_flag(ann_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(ann_btn, [](lv_event_t *e) {
         lora_announce_req = true;
+        lora_announce_show_toast = true;
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *ann_lbl = lv_label_create(ann_btn);
@@ -840,8 +869,8 @@ static void lora_compose_open()
     lv_obj_set_style_shadow_width(lora_compose_cont, 24, LV_PART_MAIN);
     lv_obj_set_style_shadow_color(lora_compose_cont, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_shadow_opa(lora_compose_cont, LV_OPA_40, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(lora_compose_cont, 10, LV_PART_MAIN);
-    lv_obj_set_style_pad_row(lora_compose_cont, 6, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(lora_compose_cont, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(lora_compose_cont, 4, LV_PART_MAIN);
     lv_obj_set_flex_flow(lora_compose_cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(lora_compose_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(lora_compose_cont, LV_OBJ_FLAG_SCROLLABLE);
@@ -855,10 +884,42 @@ static void lora_compose_open()
     lv_label_set_text(hint, "Type a short message. Enter sends.");
     lv_obj_set_width(hint, lv_pct(100));
     lv_obj_set_style_text_color(hint, um_col_text_dim(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_12, LV_PART_MAIN);
+
+    lv_obj_t *app_row = lv_obj_create(lora_compose_cont);
+    lv_obj_set_width(app_row, lv_pct(100));
+    lv_obj_set_height(app_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(app_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(app_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(app_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(app_row, 4, LV_PART_MAIN);
+    lv_obj_clear_flag(app_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(app_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(app_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *app_lbl = lv_label_create(app_row);
+    lv_label_set_text(app_lbl, "App ID:   ");
+    lv_obj_set_style_text_color(app_lbl, um_col_text_dim(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(app_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+
+    lora_compose_app_dd = lv_dropdown_create(app_row);
+    lv_obj_set_flex_grow(lora_compose_app_dd, 1);
+    lv_dropdown_set_options(lora_compose_app_dd,
+                            "A01 Text\n"
+                            "A05 Status\n"
+                            "A06 Announce\n"
+                            "A7F Raw");
+    lv_dropdown_set_selected(lora_compose_app_dd, 0);
+    lv_obj_set_style_bg_color(lora_compose_app_dd, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(lora_compose_app_dd, um_col_orange(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(lora_compose_app_dd, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(lora_compose_app_dd, 1, LV_PART_MAIN);
+    lv_obj_add_flag(lora_compose_app_dd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_set_style_text_font(lora_compose_app_dd, &lv_font_montserrat_12, LV_PART_MAIN);
 
     lora_compose_ta = lv_textarea_create(lora_compose_cont);
     lv_obj_set_width(lora_compose_ta, lv_pct(100));
-    lv_obj_set_height(lora_compose_ta, 72);
+    lv_obj_set_height(lora_compose_ta, 64);
     lv_textarea_set_placeholder_text(lora_compose_ta, "Message to broadcast over LoRa");
     lv_textarea_set_max_length(lora_compose_ta, LORA_MSG_MAX_LEN);
     lv_textarea_set_one_line(lora_compose_ta, false);
@@ -867,6 +928,9 @@ static void lora_compose_open()
     lv_obj_set_style_border_color(lora_compose_ta, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(lora_compose_ta, 1, LV_PART_MAIN);
     lv_obj_add_flag(lora_compose_ta, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(lora_compose_ta, [](lv_event_t *) {
+        lora_compose_update_count();
+    }, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_add_event_cb(lora_compose_ta, [](lv_event_t *e) {
         uint32_t key = lv_event_get_key(e);
         if (key == LV_KEY_ENTER) {
@@ -875,6 +939,13 @@ static void lora_compose_open()
             lora_compose_close();
         }
     }, LV_EVENT_KEY, NULL);
+
+    lora_compose_count_lbl = lv_label_create(lora_compose_cont);
+    lv_obj_set_width(lora_compose_count_lbl, lv_pct(100));
+    lv_obj_set_style_text_align(lora_compose_count_lbl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lora_compose_count_lbl, um_col_text_hint(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(lora_compose_count_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lora_compose_update_count();
 
     lv_obj_t *btn_row = lv_obj_create(lora_compose_cont);
     lv_obj_set_width(btn_row, lv_pct(100));
@@ -921,10 +992,11 @@ static void lora_compose_open()
 
     lv_group_t *g = lv_group_get_default();
     if (g) {
+        lv_group_add_obj(g, lora_compose_app_dd);
         lv_group_add_obj(g, lora_compose_ta);
         lv_group_add_obj(g, send_btn);
         lv_group_add_obj(g, cancel_btn);
-        lv_group_focus_obj(lora_compose_ta);
+        lv_group_focus_obj(lora_compose_app_dd);
     }
 }
 
@@ -968,6 +1040,7 @@ void um_lora_create()
     lora_announce_req    = lora_auto_announce_on_open;
     lora_freq_change_req = false;
     lora_status_state    = LORA_STATUS_LISTENING;
+    lora_announce_show_toast = false;
     lora_auto_announce_ms = millis();
     lora_logHead         = 0;
     lora_logCount  = 0;
