@@ -43,6 +43,10 @@ extern um_fw_widgets_t um_fw_widgets;
 // Safe to call from any screen — the mesh keeps running in the background.
 bool um_mesh_has_coordinator();
 
+// True when the LoRa service is still running after leaving the LoRa screen.
+// Used by the menu to indicate background LoRa receive activity.
+bool um_lora_background_active();
+
 // Pause/resume background mesh traffic before switching the radio over to
 // infrastructure WiFi for OTA or firmware downloads.
 void um_mesh_suspend(bool suspend);

@@ -3,12 +3,16 @@
 #include <ArduinoJson.h>
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
+#include <ctype.h>
 #include <lvgl.h>
 #include <esp_mac.h>
 #include "um_nav.h"
 #include "um_theme.h"
+#include "um_shared.h"
 #include "config.h"
 #include "UniversalMesh.h"          // MeshPacket struct + packet type constants
+#include "helpers/um_haptic.h"
+#include "helpers/um_storage.h"
 #include "helpers/um_toast.h"
 #include "radio/hal_interface.h"
 #include "radio/hw_lr1121.h"
@@ -92,6 +96,8 @@ static volatile bool lora_freq_change_req = false;
 static volatile bool lora_msg_send_req    = false;
 static volatile uint8_t lora_status_state = LORA_STATUS_LISTENING;
 static volatile bool lora_announce_show_toast = false;
+static volatile bool lora_service_running = false;
+static volatile bool lora_screen_active   = false;
 static bool lora_auto_announce_on_open    = true;
 static uint32_t lora_auto_announce_ms     = 0;
 static uint8_t lora_msg_app_id            = 0x01;
@@ -149,6 +155,12 @@ static void lora_compose_update_count();
 static void lora_key_bsp_cb(lv_event_t *e);
 static void lora_rebuild_rows();
 static void lora_log_push(const char *line);
+static void lora_process_json_message(const MeshPacket *pkt, const char *payload, size_t plen);
+
+bool um_lora_background_active()
+{
+    return lora_service_running && !lora_screen_active;
+}
 
 static void lora_queue_message(const char *msg, uint8_t appId)
 {
@@ -293,7 +305,10 @@ static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
             break;
 
         case MESH_TYPE_DATA: {
-            uint8_t slen = pkt->payloadLen > 52 ? 52 : pkt->payloadLen;
+            size_t plen = pkt->payloadLen;
+            if (plen > sizeof(pkt->payload)) plen = sizeof(pkt->payload);
+
+            uint8_t slen = plen > 52 ? 52 : (uint8_t)plen;
             char snippet[53] = {};
             for (int i = 0; i < slen; i++) {
                 uint8_t b = pkt->payload[i];
@@ -304,6 +319,28 @@ static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
             lora_log_push(line);
             Serial.printf("[LoRa MESH] DATA %02X:%02X A%02X: %s\n",
                           pkt->srcMac[4], pkt->srcMac[5], pkt->appId, snippet);
+
+            char payload[sizeof(pkt->payload) + 1] = {};
+            memcpy(payload, pkt->payload, plen);
+            lora_process_json_message(pkt, payload, plen);
+
+            bool directToMe = (memcmp(pkt->destMac, lora_my_mac, 6) == 0);
+            bool isCmd = (plen >= 4 && strncmp(payload, "cmd:", 4) == 0);
+            bool isJson = (plen > 0 && payload[0] == '{');
+            if (directToMe && !isCmd && !isJson && payload[0] != '\0') {
+                bool saved = um_storage_save_message(0, 0, payload, pkt->srcMac);
+                if (saved) {
+                    um_unread_count = um_unread_count + 1;
+                    char toast_txt[80];
+                    snprintf(toast_txt, sizeof(toast_txt), "Direct: %.60s", payload);
+                    um_haptic_notify();
+                    um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+                }
+                char dmlog[80];
+                snprintf(dmlog, sizeof(dmlog), "[DM] %02X:%02X: %.40s",
+                         pkt->srcMac[4], pkt->srcMac[5], payload);
+                lora_log_push(dmlog);
+            }
             break;
         }
 
@@ -327,6 +364,80 @@ static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
     }
 }
 
+static void lora_process_json_message(const MeshPacket *pkt, const char *payload, size_t plen)
+{
+    if (!payload || plen == 0 || payload[0] != '{') return;
+
+    JsonDocument jdoc;
+    DeserializationError jerr = deserializeJson(jdoc, payload, plen);
+    if (jerr) return;
+
+    uint32_t ric  = jdoc["ric"]  | 0xFFFFFFFFu;
+    uint8_t  func = jdoc["func"] | 0xFF;
+
+    if (ric == UM_RIC_TIME_SYNC && func == 3) {
+        const char *msg = jdoc["msg"] | "";
+        size_t msglen = strlen(msg);
+        const char *data = (msglen == 26) ? msg + 14 : (msglen == 12) ? msg : nullptr;
+        if (data) {
+            auto d2 = [](const char *s) -> int { return (s[0] - '0') * 10 + (s[1] - '0'); };
+            uint16_t yr  = 2000 + d2(data);
+            uint8_t  mo  = d2(data + 2);
+            uint8_t  day = d2(data + 4);
+            uint8_t  hr  = d2(data + 6);
+            uint8_t  mn  = d2(data + 8);
+            uint8_t  sec = d2(data + 10);
+#ifndef SIM_BUILD
+            instance.rtc.setDateTime(yr, mo, day, hr, mn, sec);
+#endif
+            um_time_synced = true;
+            char tslog[48];
+            snprintf(tslog, sizeof(tslog),
+                     "[TIME] Synced %04u-%02u-%02u %02u:%02u:%02u",
+                     yr, mo, day, hr, mn, sec);
+            lora_log_push(tslog);
+        }
+    }
+
+    if (ric == UM_RIC_MSG_SERVER && func == 3) {
+        const char *msg = jdoc["msg"] | "";
+        size_t mlen = strlen(msg);
+        if (mlen > 0 && mlen <= UM_MSG_SERVER_MAX_LEN) {
+            char stripped[UM_MSG_SERVER_NAME_LEN] = {};
+            strncpy(stripped, msg, UM_MSG_SERVER_NAME_LEN - 1);
+            size_t tail = strlen(stripped);
+            while (tail > 0 && isdigit((unsigned char)stripped[tail - 1]))
+                stripped[--tail] = '\0';
+            for (size_t i = 0; i < tail; i++)
+                stripped[i] = toupper((unsigned char)stripped[i]);
+            strncpy(um_msg_server_name, stripped, UM_MSG_SERVER_NAME_LEN - 1);
+            um_msg_server_name[UM_MSG_SERVER_NAME_LEN - 1] = '\0';
+            char mslog[48];
+            snprintf(mslog, sizeof(mslog), "[MSG-SRV] %s", um_msg_server_name);
+            lora_log_push(mslog);
+        }
+    }
+
+    const char *msg_field = jdoc["msg"] | "";
+    static const uint32_t exclude[] = UM_MSG_EXCLUDE_RICS;
+    bool excluded = false;
+    for (size_t xi = 0; xi < UM_MSG_EXCLUDE_COUNT; xi++) {
+        if (ric == exclude[xi]) { excluded = true; break; }
+    }
+
+    if (!excluded && msg_field[0] != '\0') {
+        bool saved = um_storage_save_message(ric, func, msg_field, pkt->srcMac);
+        if (saved && ric == UM_RIC_MY_PAGER) {
+            um_unread_count = um_unread_count + 1;
+            char toast_txt[80];
+            snprintf(toast_txt, sizeof(toast_txt),
+                     "New message · RIC %lu", (unsigned long)ric);
+            um_haptic_notify();
+            um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+        }
+    }
+}
+
 // -------------------------------------------------------
 // Radio / mesh FreeRTOS task
 // -------------------------------------------------------
@@ -345,6 +456,7 @@ static void lora_mesh_task(void *param)
 
     lora_set_freq(lora_freq_idx);
     hw_set_radio_listening();
+    lora_service_running = true;
     char start_line[LORA_LOG_COL];
     snprintf(start_line, sizeof(start_line), "Listening on %.3f MHz", lora_freqs[lora_freq_idx]);
     lora_log_push(start_line);
@@ -1076,20 +1188,28 @@ static void lora_key_bsp_cb(lv_event_t *e)
 // -------------------------------------------------------
 void um_lora_create()
 {
+    bool first_start = false;
 #ifndef SIM_BUILD
     if (!lora_mutex) lora_mutex = xSemaphoreCreateMutex();
-    hw_radio_begin();
+    if (!lora_task) {
+        hw_radio_begin();
+        first_start = true;
+    }
 #endif
 
+    lora_screen_active    = true;
     lora_test_req        = false;
     lora_announce_req    = lora_auto_announce_on_open;
     lora_freq_change_req = false;
     lora_status_state    = LORA_STATUS_LISTENING;
     lora_announce_show_toast = false;
     lora_auto_announce_ms = millis();
-    lora_logHead         = 0;
-    lora_logCount  = 0;
-    lora_log_dirty = false;
+
+    if (first_start) {
+        lora_logHead  = 0;
+        lora_logCount = 0;
+        lora_log_dirty = false;
+    }
 
     if (lora_auto_announce_on_open)
         lora_log_push("[TX] Auto announce queued");
@@ -1234,6 +1354,8 @@ void um_lora_destroy()
 {
     if (!lora_root) return;
 
+    lora_screen_active = false;
+
     if (lora_timer)      { lv_timer_del(lora_timer);      lora_timer      = NULL; }
     if (lora_bsp_timer)  { lv_timer_del(lora_bsp_timer);  lora_bsp_timer  = NULL; }
     if (lora_popup_cont) { lv_obj_del(lora_popup_cont);   lora_popup_cont = NULL; }
@@ -1251,8 +1373,4 @@ void um_lora_destroy()
     lora_info_lbl   = NULL;
     lora_log_cont   = NULL;
     lora_compose_ta = NULL;
-
-#ifndef SIM_BUILD
-    if (lora_task) { vTaskDelete(lora_task); lora_task = NULL; }
-#endif
 }

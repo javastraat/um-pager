@@ -67,6 +67,7 @@ static int         menu_focused       = 0;
 static lv_obj_t   *menu_time_lbl      = NULL;  // topbar clock
 static lv_obj_t   *menu_app_lbl       = NULL;  // topbar left label
 static lv_obj_t   *menu_coord_icon    = NULL;  // topbar coordinator indicator
+static lv_obj_t   *menu_lora_icon     = NULL;  // topbar LoRa background indicator
 static lv_timer_t *menu_topbar_timer  = NULL;
 static lv_obj_t   *menu_msg_badge_lbl = NULL;  // Messages tile unread badge
 static lv_obj_t   *menu_bat_lbl       = NULL;  // Topbar battery indicator
@@ -185,6 +186,13 @@ static void menu_topbar_update_cb(lv_timer_t *)
             LV_PART_MAIN);
     }
 
+    if (menu_lora_icon) {
+        bool running = um_lora_background_active();
+        lv_obj_set_style_text_color(menu_lora_icon,
+            running ? um_col_orange() : um_col_text_inactive(),
+            LV_PART_MAIN);
+    }
+
     // ---- App / server label ----
     if (menu_app_lbl) {
         if (um_msg_server_name[0] != '\0') {
@@ -296,6 +304,14 @@ void um_menu_create()
     lv_label_set_text(menu_coord_icon, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_font(menu_coord_icon, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_coord_icon, um_col_text_inactive(), LV_PART_MAIN);
+
+    // LoRa background indicator: orange when LoRa keeps listening off-screen
+    menu_lora_icon = lv_label_create(right_box);
+    lv_label_set_text(menu_lora_icon, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_font(menu_lora_icon, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_lora_icon,
+                                um_lora_background_active() ? um_col_orange() : um_col_text_inactive(),
+                                LV_PART_MAIN);
 
     // Battery indicator
     menu_bat_lbl = lv_label_create(right_box);
@@ -459,7 +475,7 @@ void um_menu_create()
 
     // ---- Topbar timer: update clock + coordinator icon every 30 s ----
     menu_topbar_timer = lv_timer_create(menu_topbar_update_cb, UM_MENU_TOPBAR_INTERVAL_MS, NULL);
-    lv_timer_ready(menu_topbar_timer); // fire immediately to show current time
+    menu_topbar_update_cb(NULL);
 }
 
 void um_menu_destroy()
@@ -469,6 +485,7 @@ void um_menu_destroy()
     menu_time_lbl      = NULL;
     menu_app_lbl       = NULL;
     menu_coord_icon    = NULL;
+    menu_lora_icon     = NULL;
     menu_msg_badge_lbl = NULL;
     menu_bat_lbl       = NULL;
     lv_group_t *g = lv_group_get_default();
