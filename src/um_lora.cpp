@@ -71,6 +71,13 @@ static const uint32_t lora_tx_airtime_ms[] = {
    10000,   // SF12 — ~7900ms + margin
 };
 // used as: lora_tx_airtime_ms[lora_sf_idx]
+
+enum LoraStatusState {
+    LORA_STATUS_LISTENING = 0,
+    LORA_STATUS_TRANSMITTING,
+    LORA_STATUS_RETUNING,
+};
+
 // -------------------------------------------------------
 // State
 // -------------------------------------------------------
@@ -78,7 +85,7 @@ static uint8_t lora_my_mac[6]             = {};
 static volatile bool lora_test_req        = false;
 static volatile bool lora_announce_req    = false;
 static volatile bool lora_freq_change_req = false;
-static volatile bool lora_tx_active       = false;
+static volatile uint8_t lora_status_state = LORA_STATUS_LISTENING;
 
 // -------------------------------------------------------
 // Log buffer
@@ -168,7 +175,7 @@ static void lora_tx_packet(MeshPacket *pkt)
     size_t wire_len = LORA_PKT_MIN + pkt->payloadLen;
     if (wire_len > sizeof(MeshPacket)) wire_len = sizeof(MeshPacket);
 
-    lora_tx_active = true;
+    lora_status_state = LORA_STATUS_TRANSMITTING;
 
     char dbg[LORA_LOG_COL];
     snprintf(dbg, sizeof(dbg), "[TX] startTransmit %dB type=0x%02X", (int)wire_len, pkt->type);
@@ -189,7 +196,7 @@ static void lora_tx_packet(MeshPacket *pkt)
     lora_log_push(dbg);
     Serial.printf("[LoRa TX] %s, re-arming RX\n", done ? "ISR done" : "timeout");
     hw_set_radio_listening();
-    lora_tx_active = false;
+    lora_status_state = LORA_STATUS_LISTENING;
 #endif
 }
 
@@ -269,8 +276,10 @@ static void lora_mesh_task(void *param)
         // Frequency change from popup
         if (lora_freq_change_req) {
             lora_freq_change_req = false;
+            lora_status_state = LORA_STATUS_RETUNING;
             lora_set_freq(lora_freq_idx);
             hw_set_radio_listening();
+            lora_status_state = LORA_STATUS_LISTENING;
             char line[LORA_LOG_COL];
             snprintf(line, sizeof(line), "Listening on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
@@ -347,9 +356,12 @@ static void lora_timer_cb(lv_timer_t *t)
         lora_rebuild_rows();
 
     if (lora_status_lbl) {
-        if (lora_tx_active) {
+        if (lora_status_state == LORA_STATUS_TRANSMITTING) {
             lv_label_set_text(lora_status_lbl, "Transmitting");
-            lv_obj_set_style_text_color(lora_status_lbl, um_col_focus_red(), LV_PART_MAIN);
+            lv_obj_set_style_text_color(lora_status_lbl, um_col_err(), LV_PART_MAIN);
+        } else if (lora_status_state == LORA_STATUS_RETUNING) {
+            lv_label_set_text(lora_status_lbl, "Re-tuning");
+            lv_obj_set_style_text_color(lora_status_lbl, um_col_warn(), LV_PART_MAIN);
         } else {
             lv_label_set_text(lora_status_lbl, "Listening");
             lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
@@ -726,7 +738,7 @@ void um_lora_create()
     lora_test_req        = false;
     lora_announce_req    = false;
     lora_freq_change_req = false;
-    lora_tx_active       = false;
+    lora_status_state    = LORA_STATUS_LISTENING;
     lora_logHead         = 0;
     lora_logCount  = 0;
     lora_log_dirty = false;
