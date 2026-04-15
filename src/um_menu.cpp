@@ -24,35 +24,35 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,"UniMesh","Connect & View",
+        LV_SYMBOL_WIFI,"UniMesh",       "Connect & View",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
-        LV_SYMBOL_WIFI,"LoRa","Connect & View",
+        LV_SYMBOL_WIFI,"LoRa",          "Connect & View",
         lv_color_make(255, 120, 0),   UM_SCREEN_LORA
     },
     {
-        LV_SYMBOL_ENVELOPE,"Mailbox","Send & Received",
+        LV_SYMBOL_ENVELOPE,"Mailbox",   "Inbox & Send",
         lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES
     },
     {
-        LV_SYMBOL_LOOP,"NFC","NFC Card Reader",
+        LV_SYMBOL_LOOP,"NFC",           "NFC Reader",
         lv_color_make(0, 200, 160),   UM_SCREEN_NFC
     },
     {
-        LV_SYMBOL_SD_CARD,"Storage","SD Card files",
+        LV_SYMBOL_SD_CARD,"Storage",    "SD Card files",
         lv_color_make(80, 160, 100),  UM_SCREEN_SD
     },
     {
-        LV_SYMBOL_SETTINGS,"Settings","Device Config",
+        LV_SYMBOL_SETTINGS,"Settings",  "Device Config",
         lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS
     },
     {
-        LV_SYMBOL_LIST,"Info","System & OTA",
+        LV_SYMBOL_LIST,"Info",          "System & OTA",
         lv_color_make(120, 80, 220),  UM_SCREEN_INFO
     },
     {
-        LV_SYMBOL_WARNING,"Help","About & Help",
+        LV_SYMBOL_WARNING,"Help",       "About & Help",
         lv_color_make(220, 50, 50),   UM_SCREEN_HELP
     },
 };
