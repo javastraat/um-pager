@@ -9,8 +9,40 @@
 static bool _high_freq = false;
 static EventGroupHandle_t radioEvent = NULL;
 static uint32_t last_send_millis = 0;
+static radio_params_t lastRadioParams = {};
+static bool hasLastRadioParams = false;
 
 #define LORA_ISR_FLAG _BV(0)
+
+static int16_t hw_apply_radio_params(const radio_params_t &params) {
+    int16_t state = 0;
+    instance.initLoRa();
+    state = radio.setFrequency(params.freq);
+    state = radio.setBandwidth(params.bandwidth);
+    state = radio.setSpreadingFactor(params.sf);
+    state = radio.setCodingRate(params.cr);
+    state = radio.setSyncWord(params.syncWord);
+    state = radio.setOutputPower(params.power, _high_freq);
+    switch (params.mode) {
+        case RADIO_DISABLE:
+            state = radio.standby();
+            break;
+        case RADIO_TX:
+            state = radio.startTransmit("");
+            break;
+        case RADIO_RX:
+            state = radio.startReceive();
+            break;
+        case RADIO_CW:
+            radio.standby();
+            delay(5);
+            radio.transmitDirect();
+            break;
+        default:
+            break;
+    }
+    return state;
+}
 
 static void hw_radio_isr() {
     BaseType_t xHigherPriorityTaskWoken, xResult;
@@ -32,39 +64,22 @@ void hw_radio_begin() {
 }
 
 int16_t hw_set_radio_params(radio_params_t &params) {
+    radio_params_t applied = params;
+    if (applied.freq >= 2400 && applied.power > 13) {
+        applied.power = 13;
+        _high_freq = true;
+    } else {
+        _high_freq = false;
+    }
+
     int16_t state = 0;
     instance.lockSPI();
-    instance.initLoRa();
-    state = radio.setFrequency(params.freq);
-    state = radio.setBandwidth(params.bandwidth);
-    state = radio.setSpreadingFactor(params.sf);
-    state = radio.setCodingRate(params.cr);
-    state = radio.setSyncWord(params.syncWord);
-    bool highFreq = false;
-    if (params.freq >= 2400 && params.power > 13) {
-        params.power = 13;
-        highFreq = true;
-    }
-    state = radio.setOutputPower(params.power, highFreq);
-    switch (params.mode) {
-        case RADIO_DISABLE:
-            state = radio.standby();
-            break;
-        case RADIO_TX:
-            state = radio.startTransmit("");
-            break;
-        case RADIO_RX:
-            state = radio.startReceive();
-            break;
-        case RADIO_CW:
-            radio.standby();
-            delay(5);
-            radio.transmitDirect();
-            break;
-        default:
-            break;
-    }
+    state = hw_apply_radio_params(applied);
     instance.unlockSPI();
+
+    params = applied;
+    lastRadioParams = applied;
+    hasLastRadioParams = true;
     return state;
 }
 
@@ -90,8 +105,14 @@ void hw_set_radio_listening() {
     last_send_millis = millis();
     xEventGroupClearBits(radioEvent, LORA_ISR_FLAG);
     instance.lockSPI();
-    radio.finishTransmit();   // clears TX state / DIO action before switching to RX
-    radio.startReceive();
+    radio.finishTransmit();
+    if (hasLastRadioParams) {
+        radio_params_t rxParams = lastRadioParams;
+        rxParams.mode = RADIO_RX;
+        hw_apply_radio_params(rxParams);
+    } else {
+        radio.startReceive();
+    }
     instance.unlockSPI();
 }
 
