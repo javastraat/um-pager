@@ -162,6 +162,17 @@ static void lora_queue_message(const char *msg, uint8_t appId)
         if (b < 0x20 || b >= 0x7F) continue;
         sanitized[sanitized_len++] = (char)b;
     }
+
+    size_t start = 0;
+    while (start < sanitized_len && sanitized[start] == ' ') start++;
+
+    while (sanitized_len > start && sanitized[sanitized_len - 1] == ' ')
+        sanitized_len--;
+
+    if (start > 0 && sanitized_len > start)
+        memmove(sanitized, sanitized + start, sanitized_len - start);
+
+    sanitized_len -= start;
     sanitized[sanitized_len] = '\0';
     if (sanitized_len == 0) return;
 
