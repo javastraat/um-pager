@@ -280,7 +280,7 @@ static void menu_topbar_update_cb(lv_timer_t *)
             lv_obj_set_style_text_color(menu_msg_badge_lbl,
                                         lv_color_make(255, 200, 0), LV_PART_MAIN);
         } else {
-            lv_label_set_text(menu_msg_badge_lbl, "Send & Received");
+            lv_label_set_text(menu_msg_badge_lbl, "Inbox & Send");
             lv_obj_set_style_text_color(menu_msg_badge_lbl, um_col_text_dim(), LV_PART_MAIN);
         }
     }
