@@ -28,7 +28,7 @@ static const MenuTile TILES[] = {
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
-        LV_SYMBOL_GPS,"LoRa","Connect & View",
+        LV_SYMBOL_WIFI,"LoRa","Connect & View",
         lv_color_make(255, 120, 0),   UM_SCREEN_LORA
     },
     {
@@ -36,7 +36,7 @@ static const MenuTile TILES[] = {
         lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES
     },
     {
-        LV_SYMBOL_LOOP,"NFC","Card Reader",
+        LV_SYMBOL_LOOP,"NFC","NFC Card Reader",
         lv_color_make(0, 200, 160),   UM_SCREEN_NFC
     },
     {
