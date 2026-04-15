@@ -86,6 +86,7 @@ static volatile bool lora_test_req        = false;
 static volatile bool lora_announce_req    = false;
 static volatile bool lora_freq_change_req = false;
 static volatile uint8_t lora_status_state = LORA_STATUS_LISTENING;
+static bool lora_auto_announce_on_open    = true;
 
 // -------------------------------------------------------
 // Log buffer
@@ -568,6 +569,37 @@ static void lora_popup_open()
         lora_pwr_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
+    // --- Auto announce on open ---
+    lv_obj_t *auto_row = lv_obj_create(lora_popup_cont);
+    lv_obj_set_width(auto_row, lv_pct(100));
+    lv_obj_set_height(auto_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(auto_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(auto_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(auto_row, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(auto_row, 8, LV_PART_MAIN);
+    lv_obj_clear_flag(auto_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(auto_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(auto_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *auto_lbl = lv_label_create(auto_row);
+    lv_label_set_text(auto_lbl, "Auto announce on open");
+    lv_obj_set_style_text_color(auto_lbl, um_col_text_dim(), LV_PART_MAIN);
+    lv_obj_set_flex_grow(auto_lbl, 1);
+
+    lv_obj_t *auto_sw = lv_switch_create(auto_row);
+    if (lora_auto_announce_on_open) lv_obj_add_state(auto_sw, LV_STATE_CHECKED);
+    lv_obj_add_flag(auto_sw, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_set_style_bg_color(auto_sw, um_col_divider(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(auto_sw, um_col_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_color(auto_sw, um_col_text_hint(), LV_PART_KNOB);
+    lv_obj_set_style_bg_color(auto_sw, um_col_text(),
+                              (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_KNOB));
+    lv_obj_add_event_cb(auto_sw, [](lv_event_t *e) {
+        lv_obj_t *sw = (lv_obj_t *)lv_event_get_target(e);
+        lora_auto_announce_on_open = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+
     // --- Send Test button ---
     lv_obj_t *test_btn = lv_btn_create(lora_popup_cont);
     lv_obj_set_width(test_btn, lv_pct(100));
@@ -691,6 +723,7 @@ static void lora_popup_open()
         lv_group_add_obj(g, freq_dd);
         lv_group_add_obj(g, sf_dd);
         lv_group_add_obj(g, pwr_dd);
+        lv_group_add_obj(g, auto_sw);
         lv_group_add_obj(g, test_btn);
         lv_group_add_obj(g, ann_btn);
         lv_group_add_obj(g, apply_btn);
@@ -736,12 +769,15 @@ void um_lora_create()
 #endif
 
     lora_test_req        = false;
-    lora_announce_req    = true;
+    lora_announce_req    = lora_auto_announce_on_open;
     lora_freq_change_req = false;
     lora_status_state    = LORA_STATUS_LISTENING;
     lora_logHead         = 0;
     lora_logCount  = 0;
     lora_log_dirty = false;
+
+    if (lora_auto_announce_on_open)
+        lora_log_push("[TX] Auto announce queued");
 
     // --- Root container ---
     lora_root = lv_obj_create(lv_scr_act());
