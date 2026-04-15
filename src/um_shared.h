@@ -3,11 +3,17 @@
 #include "config.h"     // UM_MSG_SERVER_NAME_LEN and other constants
 
 // ---------------------------------------------------------------------------
-// Custom FontAwesome symbols (beyond the ~60 built into LVGL)
-// Codepoints: https://fontawesome.com/icons  — UTF-8 encode U+FXXX as needed
+// Custom Material Icons — rendered via um_icons / um_icons_14 font
+// Add codepoints to src/font/makefa.sh and run bash makefa.sh to rebuild
 // ---------------------------------------------------------------------------
-#define UM_SYMBOL_ANTENNA  "\xEE\xA2\xBF"  // U+E8BF Material Icons settings_input_antenna
-#define UM_SYMBOL_NFC      "\xEE\xA9\xB1"  // U+EA71 Material Icons nfc
+#define UM_SYMBOL_ANTENNA  "\xEE\xA2\xBF"  // U+E8BF settings_input_antenna
+#define UM_SYMBOL_NFC      "\xEE\xA9\xB1"  // U+EA71 nfc
+#define UM_SYMBOL_WIFI     "\xEE\x87\xA2"  // U+E1E2 wifi
+#define UM_SYMBOL_SD_CARD  "\xEE\x98\xA3"  // U+E623 sd_card
+#define UM_SYMBOL_MAILBOX   "\xEE\x85\x98"  // U+E158 mailbox
+#define UM_SYMBOL_SETTINGS  "\xEE\xA2\xB8"  // U+E8B8 settings
+#define UM_SYMBOL_INFO      "\xEE\xA2\x8E"  // U+E88E info
+#define UM_SYMBOL_HELP      "\xEE\xA2\x87"  // U+E887 help
 
 // Shared flags and settings between screens and main loop
 extern volatile bool       um_otaRequested;

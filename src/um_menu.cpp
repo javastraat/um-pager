@@ -11,9 +11,9 @@
 // Logo image descriptor defined in um_welcome.cpp
 extern const lv_image_dsc_t um_logo_dsc;
 
-// Custom icon fonts (Material Icons / FontAwesome extras, generated via LVGL font converter)
-LV_FONT_DECLARE(fa_extra);      // size 40 — menu tile icons
-LV_FONT_DECLARE(fa_extra_14);   // size 14 — topbar indicators
+// Custom icon fonts (Material Icons, generated via src/font/makefa.sh)
+LV_FONT_DECLARE(um_icons);      // size 40 — menu tile icons
+LV_FONT_DECLARE(um_icons_14);   // size 14 — topbar indicators
 
 // -------------------------------------------------------
 // Menu tile definitions
@@ -29,36 +29,36 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,    "UniMesh",    "ESPNow Mesh",
-        lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   nullptr
+        UM_SYMBOL_WIFI,    "UniMesh",    "ESPNow Mesh",
+        lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   &um_icons
     },
     {
         UM_SYMBOL_ANTENNA, "LoRa",       "LoRa Radio",
-        lv_color_make(255, 120, 0),   UM_SCREEN_LORA,   &fa_extra
+        lv_color_make(255, 120, 0),   UM_SCREEN_LORA,   &um_icons
     },
     {
-        LV_SYMBOL_ENVELOPE,"Mailbox",    "Inbox & Send",
-        lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES, nullptr
+        UM_SYMBOL_MAILBOX, "Mailbox",    "Inbox & Send",
+        lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES, &um_icons
     },
     {
         UM_SYMBOL_NFC,    "NFC",        "NFC Reader",
-        lv_color_make(0, 200, 160),   UM_SCREEN_NFC,    &fa_extra
+        lv_color_make(0, 200, 160),   UM_SCREEN_NFC,    &um_icons
     },
     {
-        LV_SYMBOL_SD_CARD, "Storage",    "SD Card files",
-        lv_color_make(80, 160, 100),  UM_SCREEN_SD,     nullptr
+        UM_SYMBOL_SD_CARD, "Storage",    "SD Card files",
+        lv_color_make(80, 160, 100),  UM_SCREEN_SD,     &um_icons
     },
     {
-        LV_SYMBOL_SETTINGS,"Settings",   "Device Config",
-        lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS, nullptr
+        UM_SYMBOL_SETTINGS,"Settings",   "Device Config",
+        lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS, &um_icons
     },
     {
-        LV_SYMBOL_LIST,    "Info",       "System & OTA",
-        lv_color_make(120, 80, 220),  UM_SCREEN_INFO,   nullptr
+        UM_SYMBOL_INFO,    "Info",       "System & OTA",
+        lv_color_make(120, 80, 220),  UM_SCREEN_INFO,   &um_icons
     },
     {
-        LV_SYMBOL_WARNING, "Help",       "About & Help",
-        lv_color_make(220, 50, 50),   UM_SCREEN_HELP,   nullptr
+        UM_SYMBOL_HELP,    "Help",       "About & Help",
+        lv_color_make(220, 50, 50),   UM_SCREEN_HELP,   &um_icons
     },
 };
 static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
@@ -374,7 +374,7 @@ void um_menu_create()
     // LoRa background indicator: orange when LoRa keeps listening off-screen
     menu_lora_icon = lv_label_create(right_box);
     lv_label_set_text(menu_lora_icon, UM_SYMBOL_ANTENNA);
-    lv_obj_set_style_text_font(menu_lora_icon, &fa_extra_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(menu_lora_icon, &um_icons_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_lora_icon,
                                 um_lora_background_active() ? um_col_orange() : um_col_text_inactive(),
                                 LV_PART_MAIN);
