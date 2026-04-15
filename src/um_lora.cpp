@@ -156,10 +156,13 @@ static void lora_key_bsp_cb(lv_event_t *e);
 static void lora_rebuild_rows();
 static void lora_log_push(const char *line);
 static void lora_process_json_message(const MeshPacket *pkt, const char *payload, size_t plen);
+static void lora_process_command(const MeshPacket *pkt, const char *payload, size_t plen);
+static void lora_send_text_reply(const uint8_t *destMac, uint8_t appId, const char *text);
+static void lora_send_info_reply(const uint8_t *destMac, uint8_t appId);
 
 bool um_lora_background_active()
 {
-    return lora_service_running && !lora_screen_active;
+    return lora_service_running;
 }
 
 static void lora_queue_message(const char *msg, uint8_t appId)
@@ -289,6 +292,49 @@ static void lora_tx_packet(MeshPacket *pkt)
 #endif
 }
 
+static void lora_send_text_reply(const uint8_t *destMac, uint8_t appId, const char *text)
+{
+#ifndef SIM_BUILD
+    if (!destMac || !text || text[0] == '\0') return;
+
+    MeshPacket pkt = {};
+    pkt.type       = MESH_TYPE_DATA;
+    pkt.ttl        = 4;
+    pkt.msgId      = esp_random() % 1000000000u;
+    memcpy(pkt.destMac, destMac, 6);
+    memcpy(pkt.srcMac, lora_my_mac, 6);
+    pkt.appId      = appId;
+    pkt.payloadLen = (uint8_t)strnlen(text, sizeof(pkt.payload));
+    memcpy(pkt.payload, text, pkt.payloadLen);
+    lora_tx_packet(&pkt);
+#endif
+}
+
+static void lora_send_info_reply(const uint8_t *destMac, uint8_t appId)
+{
+#ifndef SIM_BUILD
+    char macStr[18];
+    snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+             lora_my_mac[0], lora_my_mac[1], lora_my_mac[2],
+             lora_my_mac[3], lora_my_mac[4], lora_my_mac[5]);
+
+    JsonDocument doc;
+    doc["n"]    = NODE_NAME;
+    doc["mac"]  = macStr;
+    doc["up"]   = (unsigned long)(millis() / 1000UL);
+    doc["heap"] = ESP.getFreeHeap();
+    doc["chip"] = ESP.getChipModel();
+    doc["rev"]  = (int)ESP.getChipRevision();
+    doc["freq"] = lora_freqs[lora_freq_idx];
+    doc["sf"]   = lora_sf_vals[lora_sf_idx];
+    doc["pwr"]  = lora_pwr_vals[lora_pwr_idx];
+
+    String out;
+    serializeJson(doc, out);
+    lora_send_text_reply(destMac, appId, out.c_str());
+#endif
+}
+
 // -------------------------------------------------------
 // Process a received MeshPacket (called from task, log-push safe)
 // -------------------------------------------------------
@@ -327,6 +373,11 @@ static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
             bool directToMe = (memcmp(pkt->destMac, lora_my_mac, 6) == 0);
             bool isCmd = (plen >= 4 && strncmp(payload, "cmd:", 4) == 0);
             bool isJson = (plen > 0 && payload[0] == '{');
+            if (directToMe && isCmd) {
+                lora_process_command(pkt, payload, plen);
+                break;
+            }
+
             if (directToMe && !isCmd && !isJson && payload[0] != '\0') {
                 bool saved = um_storage_save_message(0, 0, payload, pkt->srcMac);
                 if (saved) {
@@ -361,6 +412,35 @@ static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
                      pkt->type, pkt->srcMac[4], pkt->srcMac[5], rssi);
             lora_log_push(line);
             break;
+    }
+}
+
+static void lora_process_command(const MeshPacket *pkt, const char *payload, size_t plen)
+{
+    if (!pkt || !payload || plen < 4 || strncmp(payload, "cmd:", 4) != 0) return;
+
+    const char *command = payload + 4;
+    if (command[0] == '\0') return;
+
+    {
+        char cmd_msg[128];
+        snprintf(cmd_msg, sizeof(cmd_msg), "cmd:%s", command);
+        um_storage_save_message(0, 0xFF, cmd_msg, pkt->srcMac);
+    }
+
+    char ack[220];
+    snprintf(ack, sizeof(ack), "command received:%s", command);
+    lora_send_text_reply(pkt->srcMac, pkt->appId, ack);
+
+    if (strcmp(command, "info") == 0 || strcmp(command, "info:long") == 0) {
+        lora_send_info_reply(pkt->srcMac, pkt->appId);
+        lora_log_push("[CMD] info sent");
+    } else if (strcmp(command, "reboot") == 0) {
+        lora_log_push("[CMD] Rebooting...");
+        delay(100);
+        ESP.restart();
+    } else {
+        lora_log_push("[CMD] Unsupported");
     }
 }
 
@@ -1194,6 +1274,7 @@ void um_lora_create()
     if (!lora_task) {
         hw_radio_begin();
         first_start = true;
+        lora_service_running = true;
     }
 #endif
 
