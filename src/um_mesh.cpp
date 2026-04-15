@@ -171,7 +171,7 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
         if (!jerr) {
             uint32_t ric  = jdoc["ric"]  | 0xFFFFFFFFu;
             uint8_t  func = jdoc["func"] | 0xFF;
-            if (ric == UM_RIC_TIME_SYNC && func == 3) {
+            if (ric == UM_RIC_TIME_SYNC) {
                 const char *msg = jdoc["msg"] | "";
                 // Format: "YYYYMMDDHHMMSS" prefix (14 chars) + YYMMDDHHmmss (12 chars)
                 // Total length 26; date data starts at offset 14.
@@ -199,7 +199,7 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
             // ---- Messaging-server identification broadcast ----------------
             // Message format: {"ric":8,"func":3,"msg":"<callsign>"}
             // Strip trailing digits, uppercase: "pd2emc1" -> "PD2EMC"
-            if (ric == UM_RIC_MSG_SERVER && func == 3) {
+            if (ric == UM_RIC_MSG_SERVER) {
                 const char *msg = jdoc["msg"] | "";
                 size_t mlen = strlen(msg);
                 if (mlen > 0 && mlen <= UM_MSG_SERVER_MAX_LEN) {

@@ -455,7 +455,7 @@ static void lora_process_json_message(const MeshPacket *pkt, const char *payload
     uint32_t ric  = jdoc["ric"]  | 0xFFFFFFFFu;
     uint8_t  func = jdoc["func"] | 0xFF;
 
-    if (ric == UM_RIC_TIME_SYNC && func == 3) {
+    if (ric == UM_RIC_TIME_SYNC) {
         const char *msg = jdoc["msg"] | "";
         size_t msglen = strlen(msg);
         const char *data = (msglen == 26) ? msg + 14 : (msglen == 12) ? msg : nullptr;
@@ -479,7 +479,7 @@ static void lora_process_json_message(const MeshPacket *pkt, const char *payload
         }
     }
 
-    if (ric == UM_RIC_MSG_SERVER && func == 3) {
+    if (ric == UM_RIC_MSG_SERVER) {
         const char *msg = jdoc["msg"] | "";
         size_t mlen = strlen(msg);
         if (mlen > 0 && mlen <= UM_MSG_SERVER_MAX_LEN) {
