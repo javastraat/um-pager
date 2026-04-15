@@ -24,27 +24,27 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        LV_SYMBOL_WIFI,"UniMesh","ESP-NOW Network",
+        LV_SYMBOL_WIFI,"UniMesh","Connect & View",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH
     },
     {
-        LV_SYMBOL_GPS,"LoRa","Long-range radio",
+        LV_SYMBOL_GPS,"LoRa","Connect & View",
         lv_color_make(255, 120, 0),   UM_SCREEN_LORA
     },
     {
-        LV_SYMBOL_ENVELOPE,"Messages","Inbox & compose",
+        LV_SYMBOL_ENVELOPE,"Mailbox","Send & Received",
         lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES
     },
     {
-        LV_SYMBOL_LOOP,"NFC","Card reader",
+        LV_SYMBOL_LOOP,"NFC","Card Reader",
         lv_color_make(0, 200, 160),   UM_SCREEN_NFC
     },
     {
-        LV_SYMBOL_SD_CARD,"Storage","SD card files",
+        LV_SYMBOL_SD_CARD,"Storage","SD Card files",
         lv_color_make(80, 160, 100),  UM_SCREEN_SD
     },
     {
-        LV_SYMBOL_SETTINGS,"Settings","Device config",
+        LV_SYMBOL_SETTINGS,"Settings","Device Config",
         lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS
     },
     {
@@ -52,7 +52,7 @@ static const MenuTile TILES[] = {
         lv_color_make(120, 80, 220),  UM_SCREEN_INFO
     },
     {
-        LV_SYMBOL_WARNING,"Help","About & guide",
+        LV_SYMBOL_WARNING,"Help","About & Help",
         lv_color_make(220, 50, 50),   UM_SCREEN_HELP
     },
 };
@@ -280,7 +280,7 @@ static void menu_topbar_update_cb(lv_timer_t *)
             lv_obj_set_style_text_color(menu_msg_badge_lbl,
                                         lv_color_make(255, 200, 0), LV_PART_MAIN);
         } else {
-            lv_label_set_text(menu_msg_badge_lbl, "Inbox & compose");
+            lv_label_set_text(menu_msg_badge_lbl, "Send & Received");
             lv_obj_set_style_text_color(menu_msg_badge_lbl, um_col_text_dim(), LV_PART_MAIN);
         }
     }

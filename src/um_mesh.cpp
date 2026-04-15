@@ -1,3 +1,4 @@
+#include "um_mesh_api.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LilyGoLib.h>
@@ -30,6 +31,14 @@ static UniversalMesh     um_mesh;
 static volatile UMState  um_state    = UM_DISCOVERING;
 static uint8_t           um_myMac[6]    = {};
 static uint8_t           um_coordMac[6] = {};
+
+void um_mesh_send_message(const uint8_t *destMac, uint8_t appId, const String &payload) {
+    um_mesh.send(const_cast<uint8_t*>(destMac), MESH_TYPE_DATA, appId, payload);
+}
+
+void um_mesh_send_to_coordinator(uint8_t appId, const String &payload) {
+    um_mesh.send(um_coordMac, MESH_TYPE_DATA, appId, payload);
+}
 static uint8_t           um_channel     = 0;
 static unsigned long     um_lastHB      = 0;
 static unsigned long     um_lastTemp    = 0;

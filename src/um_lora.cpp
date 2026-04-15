@@ -165,7 +165,7 @@ bool um_lora_background_active()
     return lora_service_running;
 }
 
-static void lora_queue_message(const char *msg, uint8_t appId)
+void lora_queue_message(const char *msg, uint8_t appId)
 {
     if (!msg) return;
 

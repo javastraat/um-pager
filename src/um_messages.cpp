@@ -12,6 +12,7 @@
 #include "um_shared.h"
 #include "config.h"
 #include "helpers/um_storage.h"
+#include "um_mesh_api.h"
 
 // Maximum number of messages shown in the inbox list
 #define MSG_MAX_FILES  64
@@ -20,8 +21,265 @@
 static lv_obj_t   *msg_root      = nullptr;
 static lv_obj_t   *msg_list_cont = nullptr;
 static lv_obj_t   *msg_overlay   = nullptr;   // reader overlay (nullptr when closed)
-static lv_group_t *msg_grp       = nullptr;
-static lv_obj_t   *msg_back_btn  = nullptr;
+static lv_obj_t   *msg_compose_popup = nullptr; // compose popup (nullptr when closed)
+static lv_obj_t   *msg_compose_ta         = nullptr;
+static lv_obj_t   *msg_compose_method_dd  = nullptr;
+static lv_obj_t   *msg_compose_count_lbl  = nullptr;
+static lv_obj_t   *msg_compose_btn        = nullptr;
+static bool        msg_compose_mesh_first = true; // true: dd index 0 = ESP-NOW, false: index 0 = LoRa
+
+static void msg_compose_update_count() {
+    if (!msg_compose_ta || !msg_compose_count_lbl) return;
+    size_t len = strlen(lv_textarea_get_text(msg_compose_ta));
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%u/180", (unsigned)len);
+    lv_label_set_text(msg_compose_count_lbl, buf);
+}
+
+// Compose popup close
+static void msg_compose_close() {
+    if (!msg_compose_popup) return;
+    lv_group_t *g = lv_group_get_default();
+    lv_obj_del(msg_compose_popup);
+    msg_compose_popup       = nullptr;
+    msg_compose_ta          = nullptr;
+    msg_compose_method_dd   = nullptr;
+    msg_compose_count_lbl   = nullptr;
+    if (g && msg_compose_btn) lv_group_focus_obj(msg_compose_btn);
+}
+
+static void msg_compose_submit() {
+    if (!msg_compose_ta) return;
+    const char *raw = lv_textarea_get_text(msg_compose_ta);
+    if (!raw || !*raw) return;
+
+    // Strip trailing whitespace/newlines added by the textarea widget
+    char msg[181];
+    strncpy(msg, raw, sizeof(msg) - 1);
+    msg[sizeof(msg) - 1] = '\0';
+    size_t len = strlen(msg);
+    while (len > 0 && (msg[len - 1] == '\n' || msg[len - 1] == '\r' || msg[len - 1] == ' '))
+        msg[--len] = '\0';
+    if (len == 0) return;
+
+    uint16_t sel = msg_compose_method_dd ? lv_dropdown_get_selected(msg_compose_method_dd) : 0;
+    bool use_lora = msg_compose_mesh_first ? (sel == 1) : (sel == 0);
+
+    if (use_lora) {
+        extern void lora_queue_message(const char *msg, uint8_t appId);
+        lora_queue_message(msg, 0x01);
+    } else {
+        if (um_mesh_has_coordinator()) {
+            JsonDocument doc;
+            doc["name"] = NODE_NAME;
+            doc["msg"] = msg;
+            String payload;
+            serializeJson(doc, payload);
+            um_mesh_send_to_coordinator(0x01, payload);
+        }
+    }
+    msg_compose_close();
+}
+
+// Compose popup open
+static void msg_compose_open() {
+    if (msg_compose_popup) return;
+
+    bool mesh_active = um_mesh_has_coordinator();
+    bool lora_active = um_lora_background_active();
+    if (!mesh_active && !lora_active) return;
+
+    msg_compose_mesh_first = mesh_active; // ESP-NOW at index 0 when coordinator present
+
+    msg_compose_popup = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(msg_compose_popup, lv_pct(100), lv_pct(100));
+    lv_obj_set_pos(msg_compose_popup, 0, 0);
+    lv_obj_set_style_bg_color(msg_compose_popup, um_col_surface(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(msg_compose_popup, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(msg_compose_popup, 2, LV_PART_MAIN);
+    lv_obj_set_style_radius(msg_compose_popup, 8, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(msg_compose_popup, 24, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(msg_compose_popup, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(msg_compose_popup, LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(msg_compose_popup, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(msg_compose_popup, 4, LV_PART_MAIN);
+    lv_obj_set_flex_flow(msg_compose_popup, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(msg_compose_popup, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_clear_flag(msg_compose_popup, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Title
+    lv_obj_t *title = lv_label_create(msg_compose_popup);
+    lv_label_set_text(title, LV_SYMBOL_ENVELOPE "  Compose Message");
+    lv_obj_set_style_text_color(title, um_col_ok(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
+
+    // Hint
+    lv_obj_t *hint = lv_label_create(msg_compose_popup);
+    lv_label_set_text(hint, "Type a short message. Use Send to transmit.");
+    lv_obj_set_width(hint, lv_pct(100));
+    lv_obj_set_style_text_color(hint, um_col_text_dim(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_12, LV_PART_MAIN);
+
+    // Via row: label + method dropdown
+    lv_obj_t *via_row = lv_obj_create(msg_compose_popup);
+    lv_obj_set_width(via_row, lv_pct(100));
+    lv_obj_set_height(via_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(via_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(via_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(via_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(via_row, 4, LV_PART_MAIN);
+    lv_obj_clear_flag(via_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(via_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(via_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *via_lbl = lv_label_create(via_row);
+    lv_label_set_text(via_lbl, "Via:   ");
+    lv_obj_set_style_text_color(via_lbl, um_col_text_dim(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(via_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+
+    // Build dropdown options and default selection
+    const char *dd_opts;
+    uint16_t    dd_default = 0;
+    if (mesh_active && lora_active) {
+        dd_opts    = "ESP-NOW\nLoRa";
+        dd_default = 0; // ESP-NOW first
+    } else if (mesh_active) {
+        dd_opts    = "ESP-NOW";
+        dd_default = 0;
+    } else {
+        dd_opts    = "LoRa";
+        dd_default = 0;
+    }
+
+    msg_compose_method_dd = lv_dropdown_create(via_row);
+    lv_obj_set_flex_grow(msg_compose_method_dd, 1);
+    lv_dropdown_set_options(msg_compose_method_dd, dd_opts);
+    lv_dropdown_set_selected(msg_compose_method_dd, dd_default);
+    lv_obj_set_style_bg_color(msg_compose_method_dd, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(msg_compose_method_dd, um_col_orange(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(msg_compose_method_dd, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(msg_compose_method_dd, 1, LV_PART_MAIN);
+    lv_obj_add_flag(msg_compose_method_dd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_set_style_text_font(msg_compose_method_dd, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_add_event_cb(msg_compose_method_dd, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) msg_compose_close();
+    }, LV_EVENT_KEY, nullptr);
+
+    // Textarea
+    msg_compose_ta = lv_textarea_create(msg_compose_popup);
+    lv_obj_set_width(msg_compose_ta, lv_pct(100));
+    lv_obj_set_height(msg_compose_ta, 64);
+    lv_textarea_set_placeholder_text(msg_compose_ta, "Message to send");
+    lv_textarea_set_max_length(msg_compose_ta, 180);
+    lv_textarea_set_one_line(msg_compose_ta, false);
+    lv_obj_add_state(msg_compose_ta, LV_STATE_EDITED);
+    lv_obj_set_style_bg_color(msg_compose_ta, um_col_bg(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(msg_compose_ta, um_col_text(), LV_PART_MAIN);
+    lv_obj_set_style_border_color(msg_compose_ta, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(msg_compose_ta, 1, LV_PART_MAIN);
+    lv_obj_add_flag(msg_compose_ta, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(msg_compose_ta, [](lv_event_t *) {
+        msg_compose_update_count();
+    }, LV_EVENT_VALUE_CHANGED, nullptr);
+    lv_obj_add_event_cb(msg_compose_ta, [](lv_event_t *e) {
+        lv_obj_t *ta   = (lv_obj_t *)lv_event_get_target(e);
+        uint32_t  key  = lv_event_get_key(e);
+        bool      edit = lv_obj_has_state(ta, LV_STATE_EDITED);
+        lv_group_t *g  = lv_group_get_default();
+        if (key == LV_KEY_ENTER) {
+            if (edit) {
+                lv_obj_clear_state(ta, LV_STATE_EDITED);
+                if (g) lv_group_set_editing(g, false);
+                if (g) lv_group_focus_next(g);
+            } else {
+                lv_obj_add_state(ta, LV_STATE_EDITED);
+                if (g) lv_group_set_editing(g, true);
+            }
+            lv_event_stop_processing(e);
+        } else if ((key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) && edit) {
+            lv_obj_clear_state(ta, LV_STATE_EDITED);
+            if (g) lv_group_set_editing(g, false);
+            lv_event_stop_processing(e);
+        } else if (key == LV_KEY_ESC) {
+            msg_compose_close();
+        }
+    }, LV_EVENT_KEY, nullptr);
+
+    // Char count label
+    msg_compose_count_lbl = lv_label_create(msg_compose_popup);
+    lv_obj_set_width(msg_compose_count_lbl, lv_pct(100));
+    lv_obj_set_style_text_align(msg_compose_count_lbl, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+    lv_obj_set_style_text_color(msg_compose_count_lbl, um_col_text_hint(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(msg_compose_count_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    msg_compose_update_count();
+
+    // Button row
+    lv_obj_t *btn_row = lv_obj_create(msg_compose_popup);
+    lv_obj_set_width(btn_row, lv_pct(100));
+    lv_obj_set_height(btn_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(btn_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(btn_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(btn_row, 6, LV_PART_MAIN);
+    lv_obj_clear_flag(btn_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    // Send button
+    lv_obj_t *send_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(send_btn, 1);
+    lv_obj_set_style_bg_color(send_btn, UM_COL(0,50,20, 200,242,215), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(send_btn, um_col_focus_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(send_btn, um_col_border_focus(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(send_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(send_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(send_btn, 6, LV_PART_MAIN);
+    lv_obj_add_flag(send_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(send_btn, [](lv_event_t *) { msg_compose_submit(); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(send_btn, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) msg_compose_close();
+    }, LV_EVENT_KEY, nullptr);
+    lv_obj_t *send_lbl = lv_label_create(send_btn);
+    lv_label_set_text(send_lbl, LV_SYMBOL_UPLOAD "  Send");
+    lv_obj_set_style_text_color(send_lbl, um_col_ok(), LV_PART_MAIN);
+    lv_obj_center(send_lbl);
+
+    // Cancel button
+    lv_obj_t *cancel_btn = lv_btn_create(btn_row);
+    lv_obj_set_flex_grow(cancel_btn, 1);
+    lv_obj_set_style_bg_color(cancel_btn, UM_COL(30,20,20, 242,215,215), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(cancel_btn, um_col_focus_red(),
+                              (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_color(cancel_btn, UM_COL(80,40,40, 210,165,165), LV_PART_MAIN);
+    lv_obj_set_style_border_width(cancel_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(cancel_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(cancel_btn, 6, LV_PART_MAIN);
+    lv_obj_add_flag(cancel_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *) { msg_compose_close(); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) msg_compose_close();
+    }, LV_EVENT_KEY, nullptr);
+    lv_obj_t *cancel_lbl = lv_label_create(cancel_btn);
+    lv_label_set_text(cancel_lbl, LV_SYMBOL_CLOSE "  Cancel");
+    lv_obj_set_style_text_color(cancel_lbl, UM_COL(180,100,100, 150,35,35), LV_PART_MAIN);
+    lv_obj_center(cancel_lbl);
+
+    // Keyboard group navigation: dropdown → textarea → send → cancel
+    lv_group_t *g = lv_group_get_default();
+    if (g) {
+        lv_group_add_obj(g, msg_compose_method_dd);
+        lv_group_add_obj(g, msg_compose_ta);
+        lv_group_add_obj(g, send_btn);
+        lv_group_add_obj(g, cancel_btn);
+        lv_group_focus_obj(msg_compose_method_dd);
+    }
+}
+static lv_group_t *msg_grp         = nullptr;
+static lv_obj_t   *msg_back_btn    = nullptr;
 
 // Per-row path storage (stable pointers used by callbacks)
 static char msg_paths[MSG_MAX_FILES][MSG_PATH_LEN];
@@ -79,8 +337,9 @@ static void msg_esc_cb(lv_event_t *e)
 {
     uint32_t key = lv_event_get_key(e);
     if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) {
-        if (msg_overlay) msg_close_overlay();
-        else             um_nav_back();
+        if (msg_compose_popup) msg_compose_close();
+        else if (msg_overlay)  msg_close_overlay();
+        else                   um_nav_back();
     }
 }
 
@@ -563,6 +822,22 @@ void um_messages_create()
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(home_lbl);
 
+    // Compose button
+    msg_compose_btn = lv_btn_create(hdr);
+    lv_obj_set_size(msg_compose_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(msg_compose_btn, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(msg_compose_btn, um_col_focus_cyan(), (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_opa(msg_compose_btn, LV_OPA_COVER, (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+    lv_obj_set_style_border_width(msg_compose_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(msg_compose_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(msg_compose_btn, 2, LV_PART_MAIN);
+    lv_obj_add_event_cb(msg_compose_btn, [](lv_event_t *) { msg_compose_open(); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(msg_compose_btn, msg_esc_cb, LV_EVENT_KEY, nullptr);
+    lv_obj_t *compose_lbl = lv_label_create(msg_compose_btn);
+    lv_label_set_text(compose_lbl, LV_SYMBOL_EDIT);
+    lv_obj_set_style_text_color(compose_lbl, um_col_ok(), LV_PART_MAIN);
+    lv_obj_center(compose_lbl);
+
     // ---- Scrollable message list ----
     msg_list_cont = lv_obj_create(msg_root);
     lv_obj_set_width(msg_list_cont, lv_pct(100));
@@ -578,9 +853,10 @@ void um_messages_create()
     lv_obj_set_scroll_dir(msg_list_cont, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(msg_list_cont, LV_SCROLLBAR_MODE_ACTIVE);
 
-    // Group setup — back_btn first, then message rows added by msg_populate()
+    // Group setup — back_btn, compose_btn, then message rows added by msg_populate()
     msg_grp = lv_group_get_default();
     if (msg_grp) lv_group_add_obj(msg_grp, msg_back_btn);
+    if (msg_grp) lv_group_add_obj(msg_grp, msg_compose_btn);
 
     msg_populate();
 
@@ -598,9 +874,10 @@ void um_messages_destroy()
     if (msg_grp)     lv_group_remove_all_objs(msg_grp);
     if (msg_overlay) { lv_obj_del(msg_overlay); msg_overlay = nullptr; }
     lv_obj_del(msg_root);
-    msg_root       = nullptr;
-    msg_list_cont  = nullptr;
-    msg_back_btn   = nullptr;
-    msg_grp        = nullptr;
+    msg_root        = nullptr;
+    msg_list_cont   = nullptr;
+    msg_back_btn    = nullptr;
+    msg_compose_btn = nullptr;
+    msg_grp         = nullptr;
     msg_path_count = 0;
 }
