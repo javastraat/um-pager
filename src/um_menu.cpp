@@ -98,6 +98,16 @@ static void menu_apply_focus(int idx, bool focused)
     }
 }
 
+static void menu_focus_tile(int idx)
+{
+    if (idx < 0 || idx >= TILE_COUNT || !menu_tiles[idx]) return;
+    menu_apply_focus(menu_focused, false);
+    menu_focused = idx;
+    menu_apply_focus(menu_focused, true);
+    lv_group_focus_obj(menu_tiles[menu_focused]);
+    lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
+}
+
 // -------------------------------------------------------
 // Input handler — rotary encoder events routed here via
 // lv_group so we get LV_EVENT_KEY on the focused tile
@@ -107,18 +117,12 @@ static void menu_tile_key_cb(lv_event_t *e)
     uint32_t key = lv_event_get_key(e);
 
     if (key == LV_KEY_RIGHT || key == LV_KEY_DOWN) {
-        menu_apply_focus(menu_focused, false);
-        menu_focused = (menu_focused + 1) % TILE_COUNT;
-        menu_apply_focus(menu_focused, true);
-        lv_group_focus_obj(menu_tiles[menu_focused]);
-        lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
+        if (menu_focused < TILE_COUNT - 1)
+            menu_focus_tile(menu_focused + 1);
         lv_event_stop_processing(e); // prevent LVGL group from also advancing focus
     } else if (key == LV_KEY_LEFT || key == LV_KEY_UP) {
-        menu_apply_focus(menu_focused, false);
-        menu_focused = (menu_focused - 1 + TILE_COUNT) % TILE_COUNT;
-        menu_apply_focus(menu_focused, true);
-        lv_group_focus_obj(menu_tiles[menu_focused]);
-        lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
+        if (menu_focused > 0)
+            menu_focus_tile(menu_focused - 1);
         lv_event_stop_processing(e); // prevent LVGL group from also advancing focus
     } else if (key == LV_KEY_ENTER) {
         um_haptic_select();
@@ -154,6 +158,15 @@ static void menu_pwr_focused_cb(lv_event_t *e)
 {
     for (int i = 0; i < TILE_COUNT; i++)
         menu_apply_focus(i, false);
+}
+
+static void menu_pwr_key_cb(lv_event_t *e)
+{
+    uint32_t key = lv_event_get_key(e);
+    if (key == LV_KEY_LEFT || key == LV_KEY_RIGHT || key == LV_KEY_UP || key == LV_KEY_DOWN) {
+        menu_focus_tile(menu_focused);
+        lv_event_stop_processing(e);
+    }
 }
 
 // -------------------------------------------------------
@@ -345,6 +358,7 @@ void um_menu_create()
     lv_obj_set_style_text_color(pwr_lbl, lv_color_make(200, 60, 60), LV_PART_MAIN);
     lv_obj_center(pwr_lbl);
     lv_obj_add_event_cb(pwr_btn, menu_pwr_focused_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(pwr_btn, menu_pwr_key_cb, LV_EVENT_KEY, NULL);
     // Brighten the icon when focused, restore when focus leaves
     lv_obj_add_event_cb(pwr_btn, [](lv_event_t *e) {
         lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
