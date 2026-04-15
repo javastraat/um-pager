@@ -78,6 +78,7 @@ static uint8_t lora_my_mac[6]             = {};
 static volatile bool lora_test_req        = false;
 static volatile bool lora_announce_req    = false;
 static volatile bool lora_freq_change_req = false;
+static volatile bool lora_tx_active       = false;
 
 // -------------------------------------------------------
 // Log buffer
@@ -167,6 +168,8 @@ static void lora_tx_packet(MeshPacket *pkt)
     size_t wire_len = LORA_PKT_MIN + pkt->payloadLen;
     if (wire_len > sizeof(MeshPacket)) wire_len = sizeof(MeshPacket);
 
+    lora_tx_active = true;
+
     char dbg[LORA_LOG_COL];
     snprintf(dbg, sizeof(dbg), "[TX] startTransmit %dB type=0x%02X", (int)wire_len, pkt->type);
     lora_log_push(dbg);
@@ -186,6 +189,7 @@ static void lora_tx_packet(MeshPacket *pkt)
     lora_log_push(dbg);
     Serial.printf("[LoRa TX] %s, re-arming RX\n", done ? "ISR done" : "timeout");
     hw_set_radio_listening();
+    lora_tx_active = false;
 #endif
 }
 
@@ -343,8 +347,13 @@ static void lora_timer_cb(lv_timer_t *t)
         lora_rebuild_rows();
 
     if (lora_status_lbl) {
-        lv_label_set_text(lora_status_lbl, "Listening");
-        lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
+        if (lora_tx_active) {
+            lv_label_set_text(lora_status_lbl, "Transmitting");
+            lv_obj_set_style_text_color(lora_status_lbl, um_col_focus_red(), LV_PART_MAIN);
+        } else {
+            lv_label_set_text(lora_status_lbl, "Listening");
+            lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
+        }
     }
 
     if (lora_info_lbl) {
@@ -717,6 +726,7 @@ void um_lora_create()
     lora_test_req        = false;
     lora_announce_req    = false;
     lora_freq_change_req = false;
+    lora_tx_active       = false;
     lora_logHead         = 0;
     lora_logCount  = 0;
     lora_log_dirty = false;
@@ -750,7 +760,7 @@ void um_lora_create()
 
     lora_status_lbl = lv_label_create(hdr);
     lv_label_set_text(lora_status_lbl, "Listening");
-    lv_obj_set_style_text_color(lora_status_lbl, um_col_warn(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(lora_status_lbl, um_col_ok(), LV_PART_MAIN);
 
     lv_obj_t *back_btn = lv_btn_create(hdr);
     lv_obj_set_size(back_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
