@@ -317,6 +317,7 @@ void um_menu_create()
     if (g) {
         lv_group_set_focus_cb(g, [](lv_group_t *grp) {
             lv_obj_t *focused = lv_group_get_focused(grp);
+            if (focused == menu_pwr_btn) return; // power button is a valid focus target
             bool valid = false;
             for (int i = 0; i < TILE_COUNT; ++i) {
                 if (menu_tiles[i] == focused) {
