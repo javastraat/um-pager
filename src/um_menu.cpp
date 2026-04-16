@@ -76,6 +76,7 @@ static lv_obj_t   *menu_lora_icon     = NULL;  // topbar LoRa background indicat
 static lv_timer_t *menu_topbar_timer  = NULL;
 static lv_obj_t   *menu_msg_badge_lbl = NULL;  // Messages tile unread badge
 static lv_obj_t   *menu_bat_lbl       = NULL;  // Topbar battery indicator
+static lv_obj_t   *menu_pwr_btn       = NULL;  // Topbar power button
 
 static void menu_reset_indev_state()
 {
@@ -123,8 +124,12 @@ static void menu_focus_tile(int idx)
 
 static void menu_focus_next_tile()
 {
-    if (menu_focused < TILE_COUNT - 1)
+    if (menu_focused < TILE_COUNT - 1) {
         menu_focus_tile(menu_focused + 1);
+    } else if (menu_pwr_btn) {
+        menu_apply_focus(menu_focused, false);
+        lv_group_focus_obj(menu_pwr_btn);
+    }
 }
 
 static void menu_focus_prev_tile()
@@ -197,7 +202,7 @@ static void menu_pwr_key_cb(lv_event_t *e)
         menu_focus_next_tile();
         lv_event_stop_processing(e);
     } else if (key == LV_KEY_LEFT || key == LV_KEY_UP || key == LV_KEY_PREV) {
-        menu_focus_prev_tile();
+        menu_focus_tile(TILE_COUNT - 1);
         lv_event_stop_processing(e);
     } else if (key == LV_KEY_ENTER) {
         menu_focus_tile(menu_focused);
@@ -386,7 +391,8 @@ void um_menu_create()
     lv_obj_set_style_text_color(menu_bat_lbl, um_col_text_hint(), LV_PART_MAIN);
 
     // Power / sleep button
-    lv_obj_t *pwr_btn = lv_btn_create(right_box);
+    menu_pwr_btn = lv_btn_create(right_box);
+    lv_obj_t *pwr_btn = menu_pwr_btn;
     lv_obj_set_size(pwr_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(pwr_btn, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_color(pwr_btn, um_col_border(), LV_PART_MAIN);
