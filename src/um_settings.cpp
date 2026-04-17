@@ -306,7 +306,7 @@ void um_settings_create()
     lv_obj_t *title = lv_label_create(hdr);
     lv_label_set_text(title, LV_SYMBOL_SETTINGS "  Settings");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_accent_settings(), LV_PART_MAIN);
     lv_obj_set_flex_grow(title, 1);
 
     // Home button (top-right)

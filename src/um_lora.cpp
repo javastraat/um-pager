@@ -1337,17 +1337,18 @@ void um_lora_create()
     // --- Header row ---
     lv_obj_t *hdr = lv_obj_create(lora_root);
     lv_obj_set_width(hdr, lv_pct(100));
-    lv_obj_set_height(hdr, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(hdr, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_height(hdr, 36);
+    lv_obj_set_style_bg_color(hdr, um_col_surface(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(hdr, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(hdr, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(hdr, 6, LV_PART_MAIN);
     lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *hdr_title = lv_label_create(hdr);
     lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " LoRa Mesh");
-    lv_obj_set_style_text_color(hdr_title, um_col_orange(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(hdr_title, um_accent_lora(), LV_PART_MAIN);
 
     lora_status_lbl = lv_label_create(hdr);
     lv_label_set_text(lora_status_lbl, "Listening");

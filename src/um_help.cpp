@@ -3,8 +3,7 @@
 #include <LV_Helper.h>
 #include <lvgl.h>
 #include "um_nav.h"
-#include "config.h"
-#include "um_theme.h"
+#include "um_shared.h"
 #include "helpers/um_haptic.h"
 
 static lv_obj_t *help_root = NULL;
@@ -45,7 +44,7 @@ void um_help_create()
     lv_obj_t *title = lv_label_create(hdr);
     lv_label_set_text(title, LV_SYMBOL_WARNING "  Help & About");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, um_accent_help(), LV_PART_MAIN);
     lv_obj_set_flex_grow(title, 1);
 
     // Home button (top-right)

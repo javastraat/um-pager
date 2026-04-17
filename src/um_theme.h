@@ -31,7 +31,7 @@ static inline lv_color_t um_col_surface()
     { return _um_dark() ? lv_color_make( 14, 18, 28) : lv_color_make(226,228,240); }
 
 static inline lv_color_t um_col_surface_tile()
-    { return _um_dark() ? lv_color_make( 10, 12, 18) : lv_color_make(232,233,242); }
+    { return _um_dark() ? lv_color_make( 10, 12, 18) : lv_color_make(210,213,232); }
 
 static inline lv_color_t um_col_surface_tile_focus()
     { return _um_dark() ? lv_color_make( 18, 28, 38) : lv_color_make(210,215,235); }

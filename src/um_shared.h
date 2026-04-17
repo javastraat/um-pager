@@ -3,6 +3,19 @@
 #include "config.h"     // UM_MSG_SERVER_NAME_LEN and other constants
 
 // ---------------------------------------------------------------------------
+// Per-screen accent colours — single source of truth for both menu tiles
+// and page headers. Change here and both update automatically.
+// ---------------------------------------------------------------------------
+static inline lv_color_t um_accent_mesh()     { return UM_COL(  0,200,255,   0,130,195); }
+static inline lv_color_t um_accent_lora()     { return UM_COL(255,120,  0, 185, 70,  0); }
+static inline lv_color_t um_accent_messages() { return UM_COL(  0,230,120,   0,155, 75); }
+static inline lv_color_t um_accent_nfc()      { return UM_COL(  0,200,160,   0,145,118); }
+static inline lv_color_t um_accent_sd()       { return UM_COL(160,120, 60, 120, 85, 30); }
+static inline lv_color_t um_accent_settings() { return UM_COL(200,160,  0, 150,112,  0); }
+static inline lv_color_t um_accent_info()     { return UM_COL(120, 80,220,  85, 52,185); }
+static inline lv_color_t um_accent_help()     { return UM_COL(180,180,180, 100,105,120); }
+
+// ---------------------------------------------------------------------------
 // Custom Material Icons — rendered via um_icons / um_icons_14 font
 // Add codepoints to src/font/makefa.sh and run bash makefa.sh to rebuild
 // ---------------------------------------------------------------------------

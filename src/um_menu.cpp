@@ -29,38 +29,14 @@ struct MenuTile {
 };
 
 static const MenuTile TILES[] = {
-    {
-        UM_SYMBOL_MESH,    "UniMesh",    "ESP-Now",
-        lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   &um_icons_80
-    },
-    {
-        UM_SYMBOL_ANTENNA, "LoRa",       "LoRa Radio",
-        lv_color_make(255, 120, 0),   UM_SCREEN_LORA,   &um_icons_80
-    },
-    {
-        UM_SYMBOL_MAILBOX, "Mailbox",    "Inbox & Send",
-        lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES, &um_icons_80
-    },
-    {
-        UM_SYMBOL_NFC,    "NFC",        "NFC Reader",
-        lv_color_make(0, 200, 160),   UM_SCREEN_NFC,    &um_icons_80
-    },
-    {
-        UM_SYMBOL_SD_CARD, "Storage",    "SD Card files",
-        lv_color_make(160, 120, 60),  UM_SCREEN_SD,     &um_icons_80
-    },
-    {
-        UM_SYMBOL_SETTINGS,"Settings",   "Device Config",
-        lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS, &um_icons_80
-    },
-    {
-        UM_SYMBOL_INFO,    "Info",       "System & OTA",
-        lv_color_make(120, 80, 220),  UM_SCREEN_INFO,   &um_icons_80
-    },
-    {
-        UM_SYMBOL_HELP,    "Help",       "About & Help",
-        lv_color_make(180, 180, 180),  UM_SCREEN_HELP,   &um_icons_80
-    },
+    { UM_SYMBOL_MESH,     "UniMesh",  "ESP-Now",       um_accent_mesh(),     UM_SCREEN_MESH,     &um_icons_80 },
+    { UM_SYMBOL_ANTENNA,  "LoRa",     "LoRa Radio",    um_accent_lora(),     UM_SCREEN_LORA,     &um_icons_80 },
+    { UM_SYMBOL_MAILBOX,  "Mailbox",  "Inbox & Send",  um_accent_messages(), UM_SCREEN_MESSAGES, &um_icons_80 },
+    { UM_SYMBOL_NFC,      "NFC",      "NFC Reader",    um_accent_nfc(),      UM_SCREEN_NFC,      &um_icons_80 },
+    { UM_SYMBOL_SD_CARD,  "Storage",  "SD Card files", um_accent_sd(),       UM_SCREEN_SD,       &um_icons_80 },
+    { UM_SYMBOL_SETTINGS, "Settings", "Device Config", um_accent_settings(), UM_SCREEN_SETTINGS, &um_icons_80 },
+    { UM_SYMBOL_INFO,     "Info",     "System & OTA",  um_accent_info(),     UM_SCREEN_INFO,     &um_icons_80 },
+    { UM_SYMBOL_HELP,     "Help",     "About & Help",  um_accent_help(),     UM_SCREEN_HELP,     &um_icons_80 },
 };
 static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
 
