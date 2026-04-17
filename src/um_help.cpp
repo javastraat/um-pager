@@ -5,6 +5,7 @@
 #include "um_nav.h"
 #include "config.h"
 #include "um_theme.h"
+#include "helpers/um_haptic.h"
 
 static lv_obj_t *help_root = NULL;
 
@@ -58,9 +59,15 @@ void um_help_create()
     lv_obj_set_style_border_width(home_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(home_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(home_btn, 2, LV_PART_MAIN);
-    lv_obj_add_event_cb(home_btn, [](lv_event_t *) { um_nav_back(); },
-                        LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(home_btn, help_back_cb, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *e) {
+        um_haptic_select();
+        um_nav_back();
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ENTER) um_haptic_select();
+        help_back_cb(e);
+    }, LV_EVENT_KEY, NULL);
     lv_obj_t *home_lbl = lv_label_create(home_btn);
     lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);

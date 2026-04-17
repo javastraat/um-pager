@@ -5,6 +5,8 @@
 #include "um_nav.h"
 #include "um_theme.h"
 
+#include "helpers/um_haptic.h"
+
 // -------------------------------------------------------
 // NFC hardware — only on real device, not simulator
 // -------------------------------------------------------
@@ -284,11 +286,16 @@ static lv_obj_t* nfc_info_row(lv_obj_t *parent, lv_group_t *grp,
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_add_event_cb(row, [](lv_event_t *ev) {
         lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+        um_haptic_navigate();
     }, LV_EVENT_FOCUSED, NULL);
     lv_obj_add_event_cb(row, [](lv_event_t *e) {
         uint32_t k = lv_event_get_key(e);
+        if (k == LV_KEY_ENTER) um_haptic_select();
         if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE) um_nav_back();
     }, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(row, [](lv_event_t *e) {
+        um_haptic_select();
+    }, LV_EVENT_CLICKED, NULL);
     if (grp) lv_group_add_obj(grp, row);
 
     lv_obj_t *sym = lv_label_create(row);
@@ -380,9 +387,15 @@ void um_nfc_create()
     lv_obj_set_style_border_width(home_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(home_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(home_btn, 2, LV_PART_MAIN);
-    lv_obj_add_event_cb(home_btn, [](lv_event_t *) { um_nav_back(); },
-                        LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(home_btn, nfc_key_cb, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *e) {
+        um_haptic_select();
+        um_nav_back();
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ENTER) um_haptic_select();
+        nfc_key_cb(e);
+    }, LV_EVENT_KEY, NULL);
     lv_obj_t *home_lbl = lv_label_create(home_btn);
     lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);

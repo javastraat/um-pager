@@ -9,6 +9,7 @@
 #include "um_nav.h"
 #include "um_shared.h"
 #include "helpers/um_storage.h"
+#include "helpers/um_haptic.h"
 #include "config.h"
 
 // Max message files shown in the list
@@ -293,11 +294,20 @@ static void sd_add_msg_row(const char *name, const char *size_str,
 
     // Click (touch or encoder ENTER) → open preview
     lv_obj_add_event_cb(btn, [](lv_event_t *e) {
+        um_haptic_select();
         sd_show_preview((const char *)lv_event_get_user_data(e));
     }, LV_EVENT_CLICKED, (void *)path_ptr);
 
     // Key handler (ESC/BACKSPACE → back, ENTER → preview)
-    lv_obj_add_event_cb(btn, sd_msg_row_key_cb, LV_EVENT_KEY, (void *)path_ptr);
+    lv_obj_add_event_cb(btn, [](lv_event_t *e) {
+        uint32_t key = lv_event_get_key(e);
+        if (key == LV_KEY_ENTER) um_haptic_select();
+        sd_msg_row_key_cb(e);
+    }, LV_EVENT_KEY, (void *)path_ptr);
+    lv_obj_add_event_cb(btn, [](lv_event_t *ev) {
+        lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+        um_haptic_navigate();
+    }, LV_EVENT_FOCUSED, NULL);
 
     if (sd_grp) lv_group_add_obj(sd_grp, btn);
 }

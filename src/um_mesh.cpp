@@ -407,10 +407,18 @@ static void um_rebuild_rows(void)
                                     (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
 
         lv_obj_set_user_data(row, (void *)(intptr_t)idx);
-        lv_obj_add_event_cb(row, um_row_clicked_cb, LV_EVENT_CLICKED, NULL);
-        lv_obj_add_event_cb(row, um_key_bsp_cb,     LV_EVENT_KEY,     NULL);
+        lv_obj_add_event_cb(row, [](lv_event_t *e) {
+            um_haptic_select();
+            um_row_clicked_cb(e);
+        }, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(row, [](lv_event_t *e) {
+            uint32_t key = lv_event_get_key(e);
+            if (key == LV_KEY_ENTER) um_haptic_select();
+            um_key_bsp_cb(e);
+        }, LV_EVENT_KEY, NULL);
         lv_obj_add_event_cb(row, [](lv_event_t *ev) {
             lv_obj_scroll_to_view(lv_event_get_target_obj(ev), LV_ANIM_ON);
+            um_haptic_navigate();
         }, LV_EVENT_FOCUSED, NULL);
 
         if (g) lv_group_add_obj(g, row);
