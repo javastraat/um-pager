@@ -13,6 +13,7 @@
 #include "config.h"
 #include "helpers/um_storage.h"
 #include "um_mesh_api.h"
+#include "helpers/um_haptic.h"
 
 // Maximum number of messages shown in the inbox list
 #define MSG_MAX_FILES  64
@@ -451,7 +452,9 @@ static void msg_add_row(const char *fullpath,
 // -------------------------------------------------------
 static void msg_show_reader(const char *filepath)
 {
+
     if (msg_overlay) msg_close_overlay();
+    um_haptic_notify();
 
     strncpy(msg_reader_path, filepath, MSG_PATH_LEN - 1);
     msg_reader_path[MSG_PATH_LEN - 1] = '\0';

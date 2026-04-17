@@ -116,11 +116,14 @@ static void menu_apply_focus(int idx, bool focused)
 static void menu_focus_tile(int idx)
 {
     if (idx < 0 || idx >= TILE_COUNT || !menu_tiles[idx]) return;
-    menu_apply_focus(menu_focused, false);
-    menu_focused = idx;
-    menu_apply_focus(menu_focused, true);
-    lv_group_focus_obj(menu_tiles[menu_focused]);
-    lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
+    if (menu_focused != idx) {
+        menu_apply_focus(menu_focused, false);
+        menu_focused = idx;
+        menu_apply_focus(menu_focused, true);
+        lv_group_focus_obj(menu_tiles[menu_focused]);
+        lv_obj_scroll_to_view(menu_tiles[menu_focused], LV_ANIM_ON);
+        um_haptic_navigate();
+    }
 }
 
 static void menu_focus_next_tile()
@@ -165,6 +168,7 @@ static void menu_tile_click_cb(lv_event_t *e)
     lv_obj_t *tile = (lv_obj_t *)lv_event_get_target(e);
     for (int i = 0; i < TILE_COUNT; i++) {
         if (menu_tiles[i] == tile) {
+            um_haptic_select();
             um_nav_go(TILES[i].target);
             return;
         }
