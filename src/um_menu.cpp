@@ -29,7 +29,7 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        UM_SYMBOL_WIFI,    "UniMesh",    "ESP-Now",
+        UM_SYMBOL_MESH,    "UniMesh",    "ESP-Now",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   &um_icons
     },
     {
@@ -253,7 +253,7 @@ static void menu_topbar_update_cb(lv_timer_t *)
             lv_label_set_text_fmt(menu_app_lbl, UM_SYMBOL_ANTENNA "  %s", um_msg_server_name);
             lv_obj_set_style_text_color(menu_app_lbl, lv_color_make(0, 200, 80), LV_PART_MAIN);
         } else {
-            lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh Pager");
+            lv_label_set_text(menu_app_lbl, UM_SYMBOL_WIFI "  UniversalMesh Pager");
             lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
         }
     }
@@ -344,7 +344,7 @@ void um_menu_create()
 
     // Left: app name — updated by topbar timer once server ident is received
     menu_app_lbl = lv_label_create(topbar);
-    lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
+    lv_label_set_text(menu_app_lbl, UM_SYMBOL_WIFI "  UniversalMesh");
     lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_set_style_text_font(menu_app_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
 
@@ -373,7 +373,7 @@ void um_menu_create()
 
     // Coordinator indicator: wifi symbol, gray = no coordinator, blue = connected
     menu_coord_icon = lv_label_create(right_box);
-    lv_label_set_text(menu_coord_icon, UM_SYMBOL_WIFI);
+    lv_label_set_text(menu_coord_icon, UM_SYMBOL_MESH);
     lv_obj_set_style_text_font(menu_coord_icon, &um_icons_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_coord_icon, um_col_text_inactive(), LV_PART_MAIN);
 

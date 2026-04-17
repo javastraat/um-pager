@@ -141,7 +141,7 @@ void um_info_create()
                         LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(home_btn, info_key_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *home_lbl = lv_label_create(home_btn);
-    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
+    lv_label_set_text(home_lbl, UM_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(home_lbl);
 
@@ -184,7 +184,7 @@ void um_info_create()
     snprintf(lvgl_ver, sizeof(lvgl_ver), "v%d.%d.%d",
              lv_version_major(), lv_version_minor(), lv_version_patch());
 
-    make_info_row(scroll, g, LV_SYMBOL_WIFI,     "Node",   NODE_NAME);
+    make_info_row(scroll, g, UM_SYMBOL_WIFI,     "Node",   NODE_NAME);
     make_info_row(scroll, g, LV_SYMBOL_EYE_OPEN, "LVGL",  lvgl_ver);
     make_info_row(scroll, g, LV_SYMBOL_EYE_OPEN, "Built", __DATE__ " " __TIME__);
 
@@ -211,7 +211,7 @@ void um_info_create()
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ota_btn, info_key_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *ota_lbl = lv_label_create(ota_btn);
-    lv_label_set_text(ota_lbl, LV_SYMBOL_WIFI "  OTA Update via WiFi");
+    lv_label_set_text(ota_lbl, UM_SYMBOL_WIFI "  OTA Update via WiFi");
     lv_obj_set_style_text_font(ota_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(ota_lbl, um_col_cyan_bright(), LV_PART_MAIN);
 

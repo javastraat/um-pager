@@ -4,6 +4,7 @@
 #include <lvgl.h>
 #include "um_nav.h"
 #include "config.h"
+#include "um_shared.h"
 #include "um_theme.h"
 
 static lv_obj_t *help_root = NULL;
@@ -42,7 +43,7 @@ void um_help_create()
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, LV_SYMBOL_WARNING "  Help & About");
+    lv_label_set_text(title, UM_SYMBOL_WARNING "  Help & About");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
     lv_obj_set_flex_grow(title, 1);
@@ -62,7 +63,7 @@ void um_help_create()
                         LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(home_btn, help_back_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *home_lbl = lv_label_create(home_btn);
-    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
+    lv_label_set_text(home_lbl, UM_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(home_lbl);
 
@@ -96,7 +97,7 @@ void um_help_create()
     static const char *help_text =
         LV_SYMBOL_RIGHT "  Rotary: turn to navigate, press to select\n"
         LV_SYMBOL_KEYBOARD "  Keyboard: type commands or messages\n"
-        LV_SYMBOL_WIFI "  Mesh: scans ch1-13 for coordinator\n"
+        UM_SYMBOL_WIFI "  Mesh: scans ch1-13 for coordinator\n"
         LV_SYMBOL_POWER "  Sleep: tap power icon in the main menu\n\n"
         "Mesh Nodename: " NODE_NAME "\n"
         "UniversalMesh Pager " UM_PAGER_FW_VERSION " by PD2EMC (c) 2026\n"

@@ -391,7 +391,7 @@ static void lora_process_packet(const MeshPacket *pkt, int16_t rssi)
                     char toast_txt[80];
                     snprintf(toast_txt, sizeof(toast_txt), "Direct: %.60s", payload);
                     um_haptic_notify();
-                    um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+                    um_toast_show(UM_SYMBOL_ENVELOPE, toast_txt);
                 }
                 char dmlog[80];
                 snprintf(dmlog, sizeof(dmlog), "[DM] %02X:%02X: %.40s",
@@ -522,7 +522,7 @@ static void lora_process_json_message(const MeshPacket *pkt, const char *payload
             snprintf(toast_txt, sizeof(toast_txt),
                      "New message · RIC %lu", (unsigned long)ric);
             um_haptic_notify();
-            um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+            um_toast_show(UM_SYMBOL_ENVELOPE, toast_txt);
         }
     }
 #endif // !SIM_BUILD
@@ -591,7 +591,7 @@ static void lora_mesh_task(void *param)
             snprintf(line, sizeof(line), "[TX] Announce on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
             if (lora_announce_show_toast) {
-                um_toast_show(LV_SYMBOL_UPLOAD, "LoRa announce sent");
+                um_toast_show(UM_SYMBOL_SEND, "LoRa announce sent");
                 lora_announce_show_toast = false;
             }
         }
@@ -612,7 +612,7 @@ static void lora_mesh_task(void *param)
             char line[LORA_LOG_COL];
             snprintf(line, sizeof(line), "[TX] A%02X message on %.3f MHz", pkt.appId, lora_freqs[lora_freq_idx]);
             lora_log_push(line);
-            um_toast_show(LV_SYMBOL_ENVELOPE, "LoRa message sent");
+            um_toast_show(UM_SYMBOL_ENVELOPE, "LoRa message sent");
         }
 
         // Test message — broadcast on current frequency, lora_tx_packet re-arms RX
@@ -638,7 +638,7 @@ static void lora_mesh_task(void *param)
             char line[LORA_LOG_COL];
             snprintf(line, sizeof(line), "[TX] Testmessage on %.3f MHz", lora_freqs[lora_freq_idx]);
             lora_log_push(line);
-            um_toast_show(LV_SYMBOL_UPLOAD, "LoRa test sent");
+            um_toast_show(UM_SYMBOL_SEND, "LoRa test sent");
 #endif // !SIM_BUILD
         }
 
@@ -686,7 +686,7 @@ static void lora_timer_cb(lv_timer_t *t)
 
     if (lora_auto_lbl) {
         if (lora_auto_announce_on_open) {
-            lv_label_set_text(lora_auto_lbl, LV_SYMBOL_UPLOAD);
+            lv_label_set_text(lora_auto_lbl, UM_SYMBOL_SEND);
             lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
         } else {
             lv_label_set_text(lora_auto_lbl, "");
@@ -857,7 +857,7 @@ static void lora_popup_open()
 
     // Title — decorative only, not in focus group
     lv_obj_t *title = lv_label_create(lora_popup_cont);
-    lv_label_set_text(title, LV_SYMBOL_SETTINGS "  LoRa Options");
+    lv_label_set_text(title, UM_SYMBOL_SETTINGS "  LoRa Options");
     lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
@@ -969,7 +969,7 @@ static void lora_popup_open()
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *test_lbl = lv_label_create(test_btn);
-    lv_label_set_text(test_lbl, LV_SYMBOL_UPLOAD "  Send Test Message");
+    lv_label_set_text(test_lbl, UM_SYMBOL_SEND "  Send Test Message");
     lv_obj_set_style_text_color(test_lbl, um_col_ok(), LV_PART_MAIN);
     lv_obj_center(test_lbl);
 
@@ -990,7 +990,7 @@ static void lora_popup_open()
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *ann_lbl = lv_label_create(ann_btn);
-    lv_label_set_text(ann_lbl, LV_SYMBOL_WIFI "  Send Announce");
+    lv_label_set_text(ann_lbl, UM_SYMBOL_WIFI "  Send Announce");
     lv_obj_set_style_text_color(ann_lbl, um_col_cyan_bright(), LV_PART_MAIN);
     lv_obj_center(ann_lbl);
 
@@ -1108,7 +1108,7 @@ static void lora_compose_open()
     lv_obj_clear_flag(lora_compose_cont, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *title = lv_label_create(lora_compose_cont);
-    lv_label_set_text(title, LV_SYMBOL_ENVELOPE "  Compose LoRa Message");
+    lv_label_set_text(title, UM_SYMBOL_ENVELOPE "  Compose LoRa Message");
     lv_obj_set_style_text_color(title, um_col_ok(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
@@ -1219,7 +1219,7 @@ static void lora_compose_open()
     lv_obj_add_flag(send_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(send_btn, [](lv_event_t *) { lora_compose_submit(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *send_lbl = lv_label_create(send_btn);
-    lv_label_set_text(send_lbl, LV_SYMBOL_UPLOAD "  Send");
+    lv_label_set_text(send_lbl, UM_SYMBOL_SEND "  Send");
     lv_obj_set_style_text_color(send_lbl, um_col_ok(), LV_PART_MAIN);
     lv_obj_center(send_lbl);
 
@@ -1331,7 +1331,7 @@ void um_lora_create()
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *hdr_title = lv_label_create(hdr);
-    lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " LoRa Mesh");
+    lv_label_set_text(hdr_title, UM_SYMBOL_WIFI " LoRa Mesh");
     lv_obj_set_style_text_color(hdr_title, um_col_orange(), LV_PART_MAIN);
 
     lora_status_lbl = lv_label_create(hdr);
@@ -1351,7 +1351,7 @@ void um_lora_create()
     lv_obj_clear_flag(hdr_actions, LV_OBJ_FLAG_SCROLLABLE);
 
     lora_auto_lbl = lv_label_create(hdr_actions);
-    lv_label_set_text(lora_auto_lbl, lora_auto_announce_on_open ? LV_SYMBOL_UPLOAD : "");
+    lv_label_set_text(lora_auto_lbl, lora_auto_announce_on_open ? UM_SYMBOL_SEND : "");
     lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
 
     lora_compose_btn = lv_btn_create(hdr_actions);
@@ -1367,7 +1367,7 @@ void um_lora_create()
     lv_obj_add_event_cb(lora_compose_btn, [](lv_event_t *) { lora_compose_open(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(lora_compose_btn, lora_key_bsp_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *compose_lbl = lv_label_create(lora_compose_btn);
-    lv_label_set_text(compose_lbl, LV_SYMBOL_ENVELOPE);
+    lv_label_set_text(compose_lbl, UM_SYMBOL_ENVELOPE);
     lv_obj_set_style_text_color(compose_lbl, um_col_ok(), LV_PART_MAIN);
     lv_obj_center(compose_lbl);
 
@@ -1384,7 +1384,7 @@ void um_lora_create()
     lv_obj_add_event_cb(lora_home_btn, [](lv_event_t *) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(lora_home_btn, lora_key_bsp_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(lora_home_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_HOME);
+    lv_label_set_text(back_lbl, UM_SYMBOL_HOME);
     lv_obj_set_style_text_color(back_lbl, um_col_orange(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 

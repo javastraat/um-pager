@@ -291,7 +291,7 @@ void um_settings_create()
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, LV_SYMBOL_SETTINGS "  Settings");
+    lv_label_set_text(title, UM_SYMBOL_SETTINGS "  Settings");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
     lv_obj_set_flex_grow(title, 1);
@@ -311,7 +311,7 @@ void um_settings_create()
                         LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(home_btn, settings_key_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *home_lbl = lv_label_create(home_btn);
-    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
+    lv_label_set_text(home_lbl, UM_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(home_lbl);
 

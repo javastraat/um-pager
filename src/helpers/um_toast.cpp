@@ -3,6 +3,7 @@
 #include <lvgl.h>
 #include "../um_theme.h"
 #include "../config.h"
+#include "../um_shared.h"
 
 #ifndef SIM_BUILD
 #include <Arduino.h>
@@ -95,7 +96,7 @@ static void toast_create_cb(void * /*user_data*/)
 // -------------------------------------------------------
 void um_toast_show(const char *icon, const char *text)
 {
-    strncpy(toast_pending_icon, icon ? icon : LV_SYMBOL_ENVELOPE,
+    strncpy(toast_pending_icon, icon ? icon : UM_SYMBOL_ENVELOPE,
             sizeof(toast_pending_icon) - 1);
     strncpy(toast_pending_text, text ? text : "",
             sizeof(toast_pending_text) - 1);

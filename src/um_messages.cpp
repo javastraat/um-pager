@@ -111,7 +111,7 @@ static void msg_compose_open() {
 
     // Title
     lv_obj_t *title = lv_label_create(msg_compose_popup);
-    lv_label_set_text(title, LV_SYMBOL_ENVELOPE "  Compose Message");
+    lv_label_set_text(title, UM_SYMBOL_ENVELOPE "  Compose Message");
     lv_obj_set_style_text_color(title, um_col_ok(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
@@ -245,7 +245,7 @@ static void msg_compose_open() {
         if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) msg_compose_close();
     }, LV_EVENT_KEY, nullptr);
     lv_obj_t *send_lbl = lv_label_create(send_btn);
-    lv_label_set_text(send_lbl, LV_SYMBOL_UPLOAD "  Send");
+    lv_label_set_text(send_lbl, UM_SYMBOL_SEND "  Send");
     lv_obj_set_style_text_color(send_lbl, um_col_ok(), LV_PART_MAIN);
     lv_obj_center(send_lbl);
 
@@ -415,7 +415,7 @@ static void msg_add_row(const char *fullpath,
 
     // Accent envelope icon
     lv_obj_t *ico_lbl = lv_label_create(btn);
-    lv_label_set_text(ico_lbl, LV_SYMBOL_ENVELOPE);
+    lv_label_set_text(ico_lbl, UM_SYMBOL_ENVELOPE);
     lv_obj_set_style_text_color(ico_lbl, accent, LV_PART_MAIN);
     lv_obj_set_style_text_font(ico_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_width(ico_lbl, 20);
@@ -523,13 +523,13 @@ static void msg_show_reader(const char *filepath)
     char ric_buf[64];
     if (func == 0xFF)
         snprintf(ric_buf, sizeof(ric_buf),
-                 LV_SYMBOL_WARNING "  CMD from coordinator");
+                 UM_SYMBOL_WARNING "  CMD from coordinator");
     else if (ric == 0 && func == 0)
         snprintf(ric_buf, sizeof(ric_buf),
-                 LV_SYMBOL_WIFI "  Direct message");
+                 UM_SYMBOL_WIFI "  Direct message");
     else if (ric == UM_RIC_MY_PAGER)
         snprintf(ric_buf, sizeof(ric_buf),
-                 LV_SYMBOL_ENVELOPE "  Personal  RIC %lu", (unsigned long)ric);
+                 UM_SYMBOL_ENVELOPE "  Personal  RIC %lu", (unsigned long)ric);
     else
         snprintf(ric_buf, sizeof(ric_buf),
                  "RIC %lu  func %u", (unsigned long)ric, func);
@@ -541,7 +541,7 @@ static void msg_show_reader(const char *filepath)
 
     // From MAC
     char from_buf[56];
-    snprintf(from_buf, sizeof(from_buf), LV_SYMBOL_WIFI "  %s", from_str);
+    snprintf(from_buf, sizeof(from_buf), UM_SYMBOL_WIFI "  %s", from_str);
     lv_obj_t *from_lbl = lv_label_create(card);
     lv_label_set_text(from_lbl, from_buf);
     lv_obj_set_style_text_font(from_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
@@ -659,7 +659,7 @@ static void msg_populate(void)
 
     if (!um_sd_online) {
         lv_obj_t *lbl = lv_label_create(msg_list_cont);
-        lv_label_set_text(lbl, LV_SYMBOL_WARNING "  No SD card");
+        lv_label_set_text(lbl, UM_SYMBOL_WARNING "  No SD card");
         lv_obj_set_style_text_color(lbl, lv_color_make(200, 60, 60), LV_PART_MAIN);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
         return;
@@ -693,7 +693,7 @@ static void msg_populate(void)
 
     if (name_count == 0) {
         lv_obj_t *lbl = lv_label_create(msg_list_cont);
-        lv_label_set_text(lbl, LV_SYMBOL_ENVELOPE "  No messages yet");
+        lv_label_set_text(lbl, UM_SYMBOL_ENVELOPE "  No messages yet");
         lv_obj_set_style_text_color(lbl, um_col_text_inactive(), LV_PART_MAIN);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
         return;
@@ -800,7 +800,7 @@ void um_messages_create()
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, LV_SYMBOL_ENVELOPE "  Messages");
+    lv_label_set_text(title, UM_SYMBOL_ENVELOPE "  Messages");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
     lv_obj_set_flex_grow(title, 1);
@@ -820,7 +820,7 @@ void um_messages_create()
         [](lv_event_t *) { um_nav_back(); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(msg_back_btn, msg_esc_cb, LV_EVENT_KEY, nullptr);
     lv_obj_t *home_lbl = lv_label_create(msg_back_btn);
-    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
+    lv_label_set_text(home_lbl, UM_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(home_lbl);
 

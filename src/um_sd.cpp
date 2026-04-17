@@ -153,7 +153,7 @@ void sd_show_preview(const char *filepath)
 
     // From
     char from_buf[52];
-    snprintf(from_buf, sizeof(from_buf), LV_SYMBOL_WIFI "  %s", from_str);
+    snprintf(from_buf, sizeof(from_buf), UM_SYMBOL_WIFI "  %s", from_str);
     lv_obj_t *from_lbl = lv_label_create(card);
     lv_label_set_text(from_lbl, from_buf);
     lv_obj_set_style_text_font(from_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
@@ -369,7 +369,7 @@ static void sd_populate()
         File dir = SD.open(dir_path);
         if (!dir || !dir.isDirectory()) {
             if (dir) dir.close();
-            sd_add_row(LV_SYMBOL_WARNING, "(not found)", "", um_col_text_inactive());
+            sd_add_row(UM_SYMBOL_WARNING, "(not found)", "", um_col_text_inactive());
             continue;
         }
 
@@ -445,7 +445,7 @@ void um_sd_create()
                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, LV_SYMBOL_SD_CARD "  Storage");
+    lv_label_set_text(title, UM_SYMBOL_SD_CARD "  Storage");
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_color(title, um_col_text(), LV_PART_MAIN);
     lv_obj_set_flex_grow(title, 1);
@@ -465,7 +465,7 @@ void um_sd_create()
         [](lv_event_t *) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(back_btn, sd_esc_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_HOME);
+    lv_label_set_text(back_lbl, UM_SYMBOL_HOME);
     lv_obj_set_style_text_color(back_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 

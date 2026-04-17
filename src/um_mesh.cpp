@@ -237,7 +237,7 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
                         snprintf(toast_txt, sizeof(toast_txt),
                                  "New message · RIC %lu", (unsigned long)ric);
                         um_haptic_notify();
-                        um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+                        um_toast_show(UM_SYMBOL_ENVELOPE, toast_txt);
                     }
                 }
             }
@@ -258,7 +258,7 @@ static void um_on_receive(MeshPacket *pkt, uint8_t *senderMac)
             char toast_txt[80];
             snprintf(toast_txt, sizeof(toast_txt), "Direct: %.60s", payload);
             um_haptic_notify();
-            um_toast_show(LV_SYMBOL_ENVELOPE, toast_txt);
+            um_toast_show(UM_SYMBOL_ENVELOPE, toast_txt);
         }
         char dmlog[80];
         snprintf(dmlog, sizeof(dmlog), "[DM] %02X:%02X: %.40s",
@@ -461,7 +461,7 @@ static void um_popup_open()
     lv_obj_set_style_pad_row(um_popup_cont, 8, LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(um_popup_cont);
-    lv_label_set_text(title, LV_SYMBOL_WIFI "  Find Coordinator");
+    lv_label_set_text(title, UM_SYMBOL_WIFI "  Find Coordinator");
     lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
@@ -793,7 +793,7 @@ void um_mesh_create()
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *hdr_title = lv_label_create(hdr);
-    lv_label_set_text(hdr_title, LV_SYMBOL_WIFI " UniversalMesh");
+    lv_label_set_text(hdr_title, UM_SYMBOL_WIFI " UniversalMesh");
     lv_obj_set_style_text_color(hdr_title, um_col_cyan_bright(), LV_PART_MAIN);
 
     um_status_lbl = lv_label_create(hdr);
@@ -813,7 +813,7 @@ void um_mesh_create()
     lv_obj_set_style_pad_all(back_btn, 2, LV_PART_MAIN);
     lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_HOME);
+    lv_label_set_text(back_lbl, UM_SYMBOL_HOME);
     lv_obj_set_style_text_color(back_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(back_lbl);
 
