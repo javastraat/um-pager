@@ -318,11 +318,11 @@ void um_menu_create()
     // ---- Top bar ----
     lv_obj_t *topbar = lv_obj_create(menu_root);
     lv_obj_set_width(topbar, lv_pct(100));
-    lv_obj_set_height(topbar, 28);
+    lv_obj_set_height(topbar, 36);
     lv_obj_set_style_bg_color(topbar, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(topbar, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(topbar, 12, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(topbar, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(topbar, 6, LV_PART_MAIN);
     lv_obj_clear_flag(topbar, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(topbar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(topbar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -442,7 +442,7 @@ void um_menu_create()
     lv_obj_set_style_bg_color(tile_row, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(tile_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(tile_row, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(tile_row, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(tile_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_column(tile_row, 8, LV_PART_MAIN);
     lv_obj_set_scroll_dir(tile_row, LV_DIR_HOR);
     lv_obj_set_scrollbar_mode(tile_row, LV_SCROLLBAR_MODE_OFF);
@@ -535,11 +535,12 @@ void um_menu_create()
 
     lv_obj_t *hint = lv_obj_create(menu_root);
     lv_obj_set_width(hint, lv_pct(100));
-    lv_obj_set_height(hint, 14);
+    lv_obj_set_height(hint, 10);
     lv_obj_set_style_bg_color(hint, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hint, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(hint, 12, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(hint, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(hint, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(hint, 4, LV_PART_MAIN);
     lv_obj_clear_flag(hint, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(hint, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(hint, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
