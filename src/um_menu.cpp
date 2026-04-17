@@ -373,8 +373,8 @@ void um_menu_create()
 
     // Coordinator indicator: wifi symbol, gray = no coordinator, blue = connected
     menu_coord_icon = lv_label_create(right_box);
-    lv_label_set_text(menu_coord_icon, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_font(menu_coord_icon, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_label_set_text(menu_coord_icon, UM_SYMBOL_WIFI);
+    lv_obj_set_style_text_font(menu_coord_icon, &um_icons_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_coord_icon, um_col_text_inactive(), LV_PART_MAIN);
 
     // LoRa background indicator: orange when LoRa keeps listening off-screen
