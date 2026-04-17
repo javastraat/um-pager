@@ -251,13 +251,11 @@ static void menu_topbar_update_cb(lv_timer_t *)
     // ---- App / server label ----
     if (menu_app_lbl && menu_app_icon) {
         if (um_msg_server_name[0] != '\0') {
-            lv_label_set_text(menu_app_icon, UM_SYMBOL_ANTENNA);
-            lv_obj_set_style_text_color(menu_app_icon, lv_color_make(0, 200, 80), LV_PART_MAIN);
+            lv_obj_clear_flag(menu_app_icon, LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text(menu_app_lbl, um_msg_server_name);
             lv_obj_set_style_text_color(menu_app_lbl, lv_color_make(0, 200, 80), LV_PART_MAIN);
         } else {
-            lv_label_set_text(menu_app_icon, UM_SYMBOL_MESH);
-            lv_obj_set_style_text_color(menu_app_icon, um_col_cyan(), LV_PART_MAIN);
+            lv_obj_add_flag(menu_app_icon, LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text(menu_app_lbl, "UniversalMesh");
             lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
         }
@@ -356,9 +354,10 @@ void um_menu_create()
     lv_obj_set_style_pad_column(left_box, 4, LV_PART_MAIN);
 
     menu_app_icon = lv_label_create(left_box);
-    lv_label_set_text(menu_app_icon, UM_SYMBOL_ANTENNA);
+    lv_label_set_text(menu_app_icon, UM_SYMBOL_MAILBOX);
     lv_obj_set_style_text_font(menu_app_icon, &um_icons_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(menu_app_icon, um_col_cyan(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_app_icon, lv_color_make(0, 200, 80), LV_PART_MAIN);
+    lv_obj_add_flag(menu_app_icon, LV_OBJ_FLAG_HIDDEN);
 
     menu_app_lbl = lv_label_create(left_box);
     lv_label_set_text(menu_app_lbl, "UniversalMesh");
