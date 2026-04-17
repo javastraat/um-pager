@@ -9,8 +9,6 @@
 #include "um_nav.h"
 #include "um_shared.h"
 
-LV_FONT_DECLARE(um_icons);
-
 volatile bool       um_otaRequested        = false;
 volatile bool       um_fwDownloadRequested = false;
 um_fw_widgets_t     um_fw_widgets          = {};
@@ -40,8 +38,8 @@ void um_mesh_create()
     lv_obj_set_style_pad_row(mesh_root, 12, LV_PART_MAIN);
 
     lv_obj_t *ico = lv_label_create(mesh_root);
-    lv_label_set_text(ico, UM_SYMBOL_MESH);
-    lv_obj_set_style_text_font(ico, &um_icons, LV_PART_MAIN);
+    lv_label_set_text(ico, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_font(ico, &lv_font_montserrat_40, LV_PART_MAIN);
     lv_obj_set_style_text_color(ico, um_col_cyan_bright(), LV_PART_MAIN);
 
     lv_obj_t *title = lv_label_create(mesh_root);

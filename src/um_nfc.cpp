@@ -3,7 +3,6 @@
 #include <LV_Helper.h>
 #include <lvgl.h>
 #include "um_nav.h"
-#include "um_shared.h"
 #include "um_theme.h"
 
 // -------------------------------------------------------
@@ -385,7 +384,7 @@ void um_nfc_create()
                         LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(home_btn, nfc_key_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *home_lbl = lv_label_create(home_btn);
-    lv_label_set_text(home_lbl, UM_SYMBOL_HOME);
+    lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_center(home_lbl);
 
@@ -439,12 +438,12 @@ void um_nfc_create()
 
     nfc_section(scroll, LV_SYMBOL_EYE_OPEN "  CARD IDENTITY");
     nfc_uid_val     = nfc_info_row(scroll, g, LV_SYMBOL_CHARGE, "UID",     "--");
-    nfc_type_val    = nfc_info_row(scroll, g, UM_SYMBOL_WIFI,   "Type",    "--");
+    nfc_type_val    = nfc_info_row(scroll, g, LV_SYMBOL_WIFI,   "Type",    "--");
     nfc_product_val = nfc_info_row(scroll, g, LV_SYMBOL_LIST,   "Product", "--");
 
     nfc_divider(scroll);
 
-    nfc_section(scroll, UM_SYMBOL_SETTINGS "  PROTOCOL DETAILS");
+    nfc_section(scroll, LV_SYMBOL_SETTINGS "  PROTOCOL DETAILS");
     nfc_detail1_val = nfc_info_row(scroll, g, LV_SYMBOL_RIGHT, "Detail 1", "--");
     nfc_detail2_val = nfc_info_row(scroll, g, LV_SYMBOL_RIGHT, "Detail 2", "--");
     nfc_detail3_val = nfc_info_row(scroll, g, LV_SYMBOL_RIGHT, "Detail 3", "--");
@@ -477,7 +476,7 @@ void um_nfc_create()
         if (discErr != ST_ERR_NONE) {
             char msg[48];
             snprintf(msg, sizeof(msg),
-                     UM_SYMBOL_WARNING "  Discover err %d", (int)discErr);
+                     LV_SYMBOL_WARNING "  Discover err %d", (int)discErr);
             lv_label_set_text(nfc_status_lbl, msg);
             lv_obj_set_style_text_color(nfc_status_lbl,
                 lv_color_make(220, 80, 50), LV_PART_MAIN);
@@ -493,7 +492,7 @@ void um_nfc_create()
         }
     } else {
         lv_label_set_text(nfc_status_lbl,
-            UM_SYMBOL_WARNING "  NFC hardware not found");
+            LV_SYMBOL_WARNING "  NFC hardware not found");
         lv_obj_set_style_text_color(nfc_status_lbl,
             lv_color_make(220, 80, 50), LV_PART_MAIN);
         nfc_screen_state = NFC_IDLE;
