@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 #define UM_SYMBOL_ANTENNA  "\xEE\xA2\xBF"  // U+E8BF settings_input_antenna
 #define UM_SYMBOL_NFC      "\xEE\x86\xBB"  // U+E1BB nfc
-#define UM_SYMBOL_WIFI     "\xEE\x87\xA2"  // U+E1E2 wifi
+#define UM_SYMBOL_MESH     "\xEE\x87\xA2"  // U+E1E2 wifi — used as mesh/coordinator icon
 #define UM_SYMBOL_SD_CARD  "\xEE\x98\xA3"  // U+E623 sd_card
 #define UM_SYMBOL_MAILBOX   "\xEE\x85\x98"  // U+E158 mailbox
 #define UM_SYMBOL_SETTINGS  "\xEE\xA2\xB8"  // U+E8B8 settings

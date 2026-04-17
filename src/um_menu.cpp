@@ -29,7 +29,7 @@ struct MenuTile {
 
 static const MenuTile TILES[] = {
     {
-        UM_SYMBOL_WIFI,    "UniMesh",    "ESP-Now",
+        UM_SYMBOL_MESH,    "UniMesh",    "ESP-Now",
         lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   &um_icons
     },
     {
@@ -70,6 +70,7 @@ static lv_obj_t   *menu_root          = NULL;
 static lv_obj_t   *menu_tiles[8]      = {};
 static int         menu_focused       = 0;
 static lv_obj_t   *menu_time_lbl      = NULL;  // topbar clock
+static lv_obj_t   *menu_app_icon      = NULL;  // topbar left icon (um_icons_14)
 static lv_obj_t   *menu_app_lbl       = NULL;  // topbar left label
 static lv_obj_t   *menu_coord_icon    = NULL;  // topbar coordinator indicator
 static lv_obj_t   *menu_lora_icon     = NULL;  // topbar LoRa background indicator
@@ -248,12 +249,16 @@ static void menu_topbar_update_cb(lv_timer_t *)
     }
 
     // ---- App / server label ----
-    if (menu_app_lbl) {
+    if (menu_app_lbl && menu_app_icon) {
         if (um_msg_server_name[0] != '\0') {
-            lv_label_set_text_fmt(menu_app_lbl, UM_SYMBOL_ANTENNA "  %s", um_msg_server_name);
+            lv_label_set_text(menu_app_icon, UM_SYMBOL_ANTENNA);
+            lv_obj_set_style_text_color(menu_app_icon, lv_color_make(0, 200, 80), LV_PART_MAIN);
+            lv_label_set_text(menu_app_lbl, um_msg_server_name);
             lv_obj_set_style_text_color(menu_app_lbl, lv_color_make(0, 200, 80), LV_PART_MAIN);
         } else {
-            lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh Pager");
+            lv_label_set_text(menu_app_icon, UM_SYMBOL_MESH);
+            lv_obj_set_style_text_color(menu_app_icon, um_col_cyan(), LV_PART_MAIN);
+            lv_label_set_text(menu_app_lbl, "UniversalMesh");
             lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
         }
     }
@@ -342,9 +347,21 @@ void um_menu_create()
     lv_obj_set_flex_flow(topbar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(topbar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // Left: app name — updated by topbar timer once server ident is received
-    menu_app_lbl = lv_label_create(topbar);
-    lv_label_set_text(menu_app_lbl, LV_SYMBOL_WIFI "  UniversalMesh");
+    // Left: icon + app name — updated by topbar timer once server ident is received
+    lv_obj_t *left_box = lv_obj_create(topbar);
+    lv_obj_remove_style_all(left_box);
+    lv_obj_set_size(left_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(left_box, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(left_box, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(left_box, 4, LV_PART_MAIN);
+
+    menu_app_icon = lv_label_create(left_box);
+    lv_label_set_text(menu_app_icon, UM_SYMBOL_ANTENNA);
+    lv_obj_set_style_text_font(menu_app_icon, &um_icons_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_app_icon, um_col_cyan(), LV_PART_MAIN);
+
+    menu_app_lbl = lv_label_create(left_box);
+    lv_label_set_text(menu_app_lbl, "UniversalMesh");
     lv_obj_set_style_text_color(menu_app_lbl, um_col_cyan(), LV_PART_MAIN);
     lv_obj_set_style_text_font(menu_app_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
 
@@ -373,7 +390,7 @@ void um_menu_create()
 
     // Coordinator indicator: wifi symbol, gray = no coordinator, blue = connected
     menu_coord_icon = lv_label_create(right_box);
-    lv_label_set_text(menu_coord_icon, UM_SYMBOL_WIFI);
+    lv_label_set_text(menu_coord_icon, UM_SYMBOL_MESH);
     lv_obj_set_style_text_font(menu_coord_icon, &um_icons_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(menu_coord_icon, um_col_text_inactive(), LV_PART_MAIN);
 
