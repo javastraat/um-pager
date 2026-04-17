@@ -81,6 +81,7 @@ static void msg_compose_submit() {
 #endif
         }
     }
+    um_haptic_select();
     msg_compose_close();
 }
 
@@ -168,6 +169,9 @@ static void msg_compose_open() {
         uint32_t key = lv_event_get_key(e);
         if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) msg_compose_close();
     }, LV_EVENT_KEY, nullptr);
+    lv_obj_add_event_cb(msg_compose_method_dd, [](lv_event_t *e) {
+        um_haptic_select();
+    }, LV_EVENT_VALUE_CHANGED, nullptr);
 
     // Textarea
     msg_compose_ta = lv_textarea_create(msg_compose_popup);
@@ -240,7 +244,7 @@ static void msg_compose_open() {
     lv_obj_set_style_shadow_width(send_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(send_btn, 6, LV_PART_MAIN);
     lv_obj_add_flag(send_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_add_event_cb(send_btn, [](lv_event_t *) { msg_compose_submit(); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(send_btn, [](lv_event_t *) { um_haptic_select(); msg_compose_submit(); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(send_btn, [](lv_event_t *e) {
         uint32_t key = lv_event_get_key(e);
         if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) msg_compose_close();
@@ -261,7 +265,7 @@ static void msg_compose_open() {
     lv_obj_set_style_shadow_width(cancel_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(cancel_btn, 6, LV_PART_MAIN);
     lv_obj_add_flag(cancel_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *) { msg_compose_close(); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *) { um_haptic_select(); msg_compose_close(); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) {
         uint32_t key = lv_event_get_key(e);
         if (key == LV_KEY_ESC || key == LV_KEY_BACKSPACE) msg_compose_close();
@@ -820,7 +824,7 @@ void um_messages_create()
     lv_obj_set_style_shadow_width(msg_back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(msg_back_btn, 2, LV_PART_MAIN);
     lv_obj_add_event_cb(msg_back_btn,
-        [](lv_event_t *) { um_nav_back(); }, LV_EVENT_CLICKED, nullptr);
+        [](lv_event_t *) { um_haptic_select(); um_nav_back(); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(msg_back_btn, msg_esc_cb, LV_EVENT_KEY, nullptr);
     lv_obj_t *home_lbl = lv_label_create(msg_back_btn);
     lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
@@ -836,7 +840,7 @@ void um_messages_create()
     lv_obj_set_style_border_width(msg_compose_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(msg_compose_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(msg_compose_btn, 2, LV_PART_MAIN);
-    lv_obj_add_event_cb(msg_compose_btn, [](lv_event_t *) { msg_compose_open(); }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(msg_compose_btn, [](lv_event_t *) { um_haptic_select(); msg_compose_open(); }, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(msg_compose_btn, msg_esc_cb, LV_EVENT_KEY, nullptr);
     lv_obj_t *compose_lbl = lv_label_create(msg_compose_btn);
     lv_label_set_text(compose_lbl, LV_SYMBOL_EDIT);

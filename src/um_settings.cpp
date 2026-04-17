@@ -5,6 +5,7 @@
 #include "um_nav.h"
 #include "um_shared.h"
 #include "config.h"
+#include "helpers/um_haptic.h"
 #ifndef SIM_BUILD
 #include <Preferences.h>
 #endif
@@ -96,6 +97,9 @@ static lv_obj_t *make_slider_row(lv_obj_t *parent,
 
     lv_obj_set_user_data(slider, val_lbl);
     lv_obj_add_event_cb(slider, on_change, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(slider, [](lv_event_t *e) {
+        if (lv_event_get_code(e) == LV_EVENT_FOCUSED) um_haptic_navigate();
+    }, LV_EVENT_FOCUSED, NULL);
 
     return slider;
 }
@@ -110,6 +114,7 @@ static void disp_brightness_cb(lv_event_t *e)
     instance.setBrightness((uint8_t)val);
     lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
     if (lbl) lv_label_set_text_fmt(lbl, "%d%%", val * 100 / 255);
+    um_haptic_select();
 }
 
 static void kb_brightness_cb(lv_event_t *e)
@@ -119,6 +124,7 @@ static void kb_brightness_cb(lv_event_t *e)
     instance.kb.setBrightness((uint8_t)val);
     lv_obj_t *lbl = (lv_obj_t *)lv_obj_get_user_data(slider);
     if (lbl) lv_label_set_text_fmt(lbl, "%d%%", val * 100 / 255);
+    um_haptic_select();
 }
 
 // Timeout callbacks — label shows "Never" at 0, else "Xs"
@@ -131,6 +137,7 @@ static void dim_timeout_cb(lv_event_t *e)
     if (!lbl) return;
     if (val == 0) lv_label_set_text(lbl, "Never");
     else          lv_label_set_text_fmt(lbl, "%ds", val);
+    um_haptic_select();
 }
 
 static void dim_brightness_cb(lv_event_t *e)
@@ -142,6 +149,7 @@ static void dim_brightness_cb(lv_event_t *e)
     if (!lbl) return;
     if (val == 0) lv_label_set_text(lbl, "Off");
     else          lv_label_set_text_fmt(lbl, "%d%%", val * 100 / 255);
+    um_haptic_select();
 }
 
 static void sleep_timeout_cb(lv_event_t *e)
@@ -153,6 +161,7 @@ static void sleep_timeout_cb(lv_event_t *e)
     if (!lbl) return;
     if (val == 0) lv_label_set_text(lbl, "Never");
     else          lv_label_set_text_fmt(lbl, "%ds", val);
+    um_haptic_select();
 }
 
 // -------------------------------------------------------
@@ -182,8 +191,12 @@ static void slider_key_cb(lv_event_t *e)
     bool      editing = lv_obj_has_state(slider, LV_STATE_EDITED);
 
     if (key == LV_KEY_ENTER) {
-        if (editing) lv_obj_clear_state(slider, LV_STATE_EDITED);
-        else         lv_obj_add_state(slider,   LV_STATE_EDITED);
+        if (editing) {
+            lv_obj_clear_state(slider, LV_STATE_EDITED);
+        } else {
+            lv_obj_add_state(slider, LV_STATE_EDITED);
+        }
+        um_haptic_select();
         lv_event_stop_processing(e);
         return;
     }
@@ -307,9 +320,23 @@ void um_settings_create()
     lv_obj_set_style_border_width(home_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(home_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(home_btn, 2, LV_PART_MAIN);
-    lv_obj_add_event_cb(home_btn, [](lv_event_t *) { um_settings_save(); um_nav_back(); },
-                        LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(home_btn, settings_key_cb, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *e) {
+        if (lv_event_get_code(e) == LV_EVENT_CLICKED ||
+            (lv_event_get_code(e) == LV_EVENT_KEY && lv_event_get_key(e) == LV_KEY_ENTER)) {
+            um_haptic_select();
+        }
+        um_settings_save();
+        um_nav_back();
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(home_btn, [](lv_event_t *e) {
+        if (lv_event_get_code(e) == LV_EVENT_KEY && lv_event_get_key(e) == LV_KEY_ENTER) {
+            um_haptic_select();
+            um_settings_save();
+            um_nav_back();
+        } else {
+            settings_key_cb(e);
+        }
+    }, LV_EVENT_KEY, NULL);
     lv_obj_t *home_lbl = lv_label_create(home_btn);
     lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_cyan(), LV_PART_MAIN);
@@ -373,6 +400,9 @@ void um_settings_create()
         lv_obj_set_flex_grow(lbl, 1);
 
         lv_obj_t *sw = lv_switch_create(row);
+                lv_obj_add_event_cb(sw, [](lv_event_t *e) {
+                    if (lv_event_get_code(e) == LV_EVENT_FOCUSED) um_haptic_navigate();
+                }, LV_EVENT_FOCUSED, NULL);
         if (um_active_theme == UM_THEME_DARK) lv_obj_add_state(sw, LV_STATE_CHECKED);
         lv_obj_add_flag(sw, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
         lv_obj_set_style_bg_color(sw, um_col_divider(), LV_PART_MAIN);
@@ -387,6 +417,7 @@ void um_settings_create()
                               ? UM_THEME_DARK : UM_THEME_LIGHT;
             um_settings_save();
             um_nav_go(UM_SCREEN_MENU);
+            um_haptic_select();
         }, LV_EVENT_VALUE_CHANGED, NULL);
         lv_obj_add_event_cb(sw, settings_key_cb, LV_EVENT_KEY, NULL);
         if (g) lv_group_add_obj(g, sw);

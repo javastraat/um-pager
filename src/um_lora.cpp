@@ -800,6 +800,7 @@ static void lora_compose_submit()
     uint16_t idx = lora_compose_app_dd ? lv_dropdown_get_selected(lora_compose_app_dd) : 0;
     if (idx >= (sizeof(app_ids) / sizeof(app_ids[0]))) idx = 0;
     lora_queue_message(msg, app_ids[idx]);
+    um_haptic_select();
     lora_compose_close();
 }
 
@@ -965,6 +966,7 @@ static void lora_popup_open()
     lv_obj_set_style_radius(test_btn, 6, LV_PART_MAIN);
     lv_obj_add_flag(test_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(test_btn, [](lv_event_t *e) {
+        um_haptic_select();
         lora_test_req = true;
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
@@ -985,6 +987,7 @@ static void lora_popup_open()
     lv_obj_set_style_radius(ann_btn, 6, LV_PART_MAIN);
     lv_obj_add_flag(ann_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(ann_btn, [](lv_event_t *e) {
+        um_haptic_select();
         lora_announce_req = true;
         lora_announce_show_toast = true;
         lora_popup_close();
@@ -1017,6 +1020,7 @@ static void lora_popup_open()
     lv_obj_set_style_shadow_width(apply_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(apply_btn, 6, LV_PART_MAIN);
     lv_obj_add_event_cb(apply_btn, [](lv_event_t *e) {
+        um_haptic_select();
         lora_freq_change_req = true;
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
@@ -1041,6 +1045,7 @@ static void lora_popup_open()
     def_ctx = { freq_dd, sf_dd, pwr_dd };
     lv_obj_set_user_data(def_btn, &def_ctx);
     lv_obj_add_event_cb(def_btn, [](lv_event_t *e) {
+        um_haptic_select();
         DefCtx *ctx = (DefCtx *)lv_obj_get_user_data((lv_obj_t *)lv_event_get_target(e));
         lora_freq_idx = LORA_DEFAULT_FREQ_IDX;  // 868.000 MHz
         lora_sf_idx   = LORA_DEFAULT_SF_IDX;    // SF9  — Balanced
@@ -1064,7 +1069,10 @@ static void lora_popup_open()
     lv_obj_set_style_border_width(cancel_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(cancel_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(cancel_btn, 6, LV_PART_MAIN);
-    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) { lora_popup_close(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) {
+        um_haptic_select();
+        lora_popup_close();
+    }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *cancel_lbl = lv_label_create(cancel_btn);
     lv_label_set_text(cancel_lbl, LV_SYMBOL_CLOSE "  Cancel");
     lv_obj_set_style_text_color(cancel_lbl, UM_COL(180,100,100, 150,35,35), LV_PART_MAIN);
@@ -1147,6 +1155,9 @@ static void lora_compose_open()
     lv_obj_set_style_border_color(lora_compose_app_dd, um_col_border_focus(), LV_PART_MAIN);
     lv_obj_set_style_border_width(lora_compose_app_dd, 1, LV_PART_MAIN);
     lv_obj_add_flag(lora_compose_app_dd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_event_cb(lora_compose_app_dd, [](lv_event_t *e) {
+        um_haptic_select();
+    }, LV_EVENT_VALUE_CHANGED, nullptr);
     lv_obj_set_style_text_font(lora_compose_app_dd, &lv_font_montserrat_12, LV_PART_MAIN);
 
     lora_compose_ta = lv_textarea_create(lora_compose_cont);
@@ -1217,7 +1228,7 @@ static void lora_compose_open()
     lv_obj_set_style_shadow_width(send_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(send_btn, 6, LV_PART_MAIN);
     lv_obj_add_flag(send_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_add_event_cb(send_btn, [](lv_event_t *) { lora_compose_submit(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(send_btn, [](lv_event_t *) { um_haptic_select(); lora_compose_submit(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *send_lbl = lv_label_create(send_btn);
     lv_label_set_text(send_lbl, LV_SYMBOL_UPLOAD "  Send");
     lv_obj_set_style_text_color(send_lbl, um_col_ok(), LV_PART_MAIN);
@@ -1233,7 +1244,7 @@ static void lora_compose_open()
     lv_obj_set_style_shadow_width(cancel_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(cancel_btn, 6, LV_PART_MAIN);
     lv_obj_add_flag(cancel_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *) { lora_compose_close(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *) { um_haptic_select(); lora_compose_close(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *cancel_lbl = lv_label_create(cancel_btn);
     lv_label_set_text(cancel_lbl, LV_SYMBOL_CLOSE "  Cancel");
     lv_obj_set_style_text_color(cancel_lbl, UM_COL(180,100,100, 150,35,35), LV_PART_MAIN);

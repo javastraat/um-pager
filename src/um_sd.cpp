@@ -472,8 +472,21 @@ void um_sd_create()
     lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(back_btn, 2, LV_PART_MAIN);
     lv_obj_add_event_cb(back_btn,
-        [](lv_event_t *) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(back_btn, sd_esc_cb, LV_EVENT_KEY, NULL);
+            [](lv_event_t *e) {
+                if (lv_event_get_code(e) == LV_EVENT_CLICKED ||
+                    (lv_event_get_code(e) == LV_EVENT_KEY && lv_event_get_key(e) == LV_KEY_ENTER)) {
+                    um_haptic_select();
+                }
+                um_nav_back();
+            }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) {
+        if (lv_event_get_code(e) == LV_EVENT_KEY && lv_event_get_key(e) == LV_KEY_ENTER) {
+            um_haptic_select();
+            um_nav_back();
+        } else {
+            sd_esc_cb(e);
+        }
+    }, LV_EVENT_KEY, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(back_lbl, um_col_cyan(), LV_PART_MAIN);

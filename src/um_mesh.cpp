@@ -513,7 +513,10 @@ static void um_popup_open()
     lv_obj_set_style_border_width(cancel_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(cancel_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(cancel_btn, 6, LV_PART_MAIN);
-    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) { um_popup_close(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(cancel_btn, [](lv_event_t *e) {
+        um_haptic_select();
+        um_popup_close();
+    }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *cancel_lbl = lv_label_create(cancel_btn);
     lv_label_set_text(cancel_lbl, LV_SYMBOL_CLOSE "  Cancel");
     lv_obj_set_style_text_color(cancel_lbl, UM_COL(180,100,100, 150,35,35), LV_PART_MAIN);
@@ -819,7 +822,13 @@ void um_mesh_create()
     lv_obj_set_style_border_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(back_btn, 2, LV_PART_MAIN);
-    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) { um_nav_back(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(back_btn, [](lv_event_t *e) {
+        if (lv_event_get_code(e) == LV_EVENT_CLICKED ||
+            (lv_event_get_code(e) == LV_EVENT_KEY && lv_event_get_key(e) == LV_KEY_ENTER)) {
+            um_haptic_select();
+        }
+        um_nav_back();
+    }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *back_lbl = lv_label_create(back_btn);
     lv_label_set_text(back_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(back_lbl, um_col_cyan(), LV_PART_MAIN);

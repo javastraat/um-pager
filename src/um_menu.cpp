@@ -431,6 +431,7 @@ void um_menu_create()
     lv_obj_set_style_shadow_width(pwr_btn, 16, focused);
     lv_obj_set_style_shadow_opa(pwr_btn, LV_OPA_70, focused);
     lv_obj_add_event_cb(pwr_btn, [](lv_event_t *e) {
+        um_haptic_select();
         instance.sleep((WakeupSource_t)(WAKEUP_SRC_BOOT_BUTTON | WAKEUP_SRC_ROTARY_BUTTON));
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *pwr_lbl = lv_label_create(pwr_btn);
