@@ -220,6 +220,7 @@ void um_info_create()
     lv_obj_set_style_pad_all(ota_btn, 8, LV_PART_MAIN);
     lv_obj_add_flag(ota_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(ota_btn, [](lv_event_t *) {
+        um_haptic_select();
         um_otaRequested = true;
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ota_btn, info_key_cb, LV_EVENT_KEY, NULL);
@@ -249,6 +250,7 @@ void um_info_create()
     lv_obj_set_style_pad_all(dl_btn, 8, LV_PART_MAIN);
     lv_obj_add_flag(dl_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(dl_btn, [](lv_event_t *) {
+        um_haptic_select();
         // Build the progress overlay
         lv_obj_t *ov = lv_obj_create(lv_scr_act());
         lv_obj_set_size(ov, lv_pct(100), lv_pct(100));

@@ -12,7 +12,8 @@
 extern const lv_image_dsc_t um_logo_dsc;
 
 // Custom icon fonts (Material Icons, generated via src/font/makefa.sh)
-LV_FONT_DECLARE(um_icons);      // size 40 — menu tile icons
+LV_FONT_DECLARE(um_icons);      // size 48 — fallback
+LV_FONT_DECLARE(um_icons_80);   // size 80 — menu tile icons
 LV_FONT_DECLARE(um_icons_14);   // size 14 — topbar indicators
 
 // -------------------------------------------------------
@@ -30,35 +31,35 @@ struct MenuTile {
 static const MenuTile TILES[] = {
     {
         UM_SYMBOL_MESH,    "UniMesh",    "ESP-Now",
-        lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   &um_icons
+        lv_color_make(0, 200, 255),   UM_SCREEN_MESH,   &um_icons_80
     },
     {
         UM_SYMBOL_ANTENNA, "LoRa",       "LoRa Radio",
-        lv_color_make(255, 120, 0),   UM_SCREEN_LORA,   &um_icons
+        lv_color_make(255, 120, 0),   UM_SCREEN_LORA,   &um_icons_80
     },
     {
         UM_SYMBOL_MAILBOX, "Mailbox",    "Inbox & Send",
-        lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES, &um_icons
+        lv_color_make(0, 230, 120),   UM_SCREEN_MESSAGES, &um_icons_80
     },
     {
         UM_SYMBOL_NFC,    "NFC",        "NFC Reader",
-        lv_color_make(0, 200, 160),   UM_SCREEN_NFC,    &um_icons
+        lv_color_make(0, 200, 160),   UM_SCREEN_NFC,    &um_icons_80
     },
     {
         UM_SYMBOL_SD_CARD, "Storage",    "SD Card files",
-        lv_color_make(80, 160, 100),  UM_SCREEN_SD,     &um_icons
+        lv_color_make(160, 120, 60),  UM_SCREEN_SD,     &um_icons_80
     },
     {
         UM_SYMBOL_SETTINGS,"Settings",   "Device Config",
-        lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS, &um_icons
+        lv_color_make(200, 160, 0),   UM_SCREEN_SETTINGS, &um_icons_80
     },
     {
         UM_SYMBOL_INFO,    "Info",       "System & OTA",
-        lv_color_make(120, 80, 220),  UM_SCREEN_INFO,   &um_icons
+        lv_color_make(120, 80, 220),  UM_SCREEN_INFO,   &um_icons_80
     },
     {
         UM_SYMBOL_HELP,    "Help",       "About & Help",
-        lv_color_make(220, 50, 50),   UM_SCREEN_HELP,   &um_icons
+        lv_color_make(180, 180, 180),  UM_SCREEN_HELP,   &um_icons_80
     },
 };
 static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
@@ -177,6 +178,7 @@ static void menu_tile_click_cb(lv_event_t *e)
 
 static void menu_tile_focused_cb(lv_event_t *e)
 {
+    um_haptic_navigate();
     lv_obj_t *tile = (lv_obj_t *)lv_event_get_target(e);
     int found = -1;
     for (int i = 0; i < TILE_COUNT; i++) {
@@ -464,7 +466,7 @@ void um_menu_create()
     lv_obj_set_style_bg_color(tile_row, um_col_bg(), LV_PART_MAIN);
     lv_obj_set_style_border_width(tile_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(tile_row, 8, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(tile_row, 6, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(tile_row, 2, LV_PART_MAIN);
     lv_obj_set_style_pad_column(tile_row, 8, LV_PART_MAIN);
     lv_obj_set_scroll_dir(tile_row, LV_DIR_HOR);
     lv_obj_set_scrollbar_mode(tile_row, LV_SCROLLBAR_MODE_OFF);
@@ -495,22 +497,22 @@ void um_menu_create()
         lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_flex_flow(tile, LV_FLEX_FLOW_COLUMN);
         lv_obj_set_flex_align(tile, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_style_pad_row(tile, 4, LV_PART_MAIN);
+        lv_obj_set_style_pad_row(tile, 2, LV_PART_MAIN);
         lv_obj_add_flag(tile, LV_OBJ_FLAG_CLICKABLE);
 
         // Big symbol / icon — tile 0 uses the logo PNG, others use a symbol glyph
         if (TILES[i].symbol == NULL) {
             lv_obj_t *ico = lv_image_create(tile);
             lv_image_set_src(ico, &um_logo_dsc);
-            // Scale 512px source down to ~40px (20/256 * 512 = 40)
-            lv_image_set_scale(ico, 20);
-            lv_obj_set_size(ico, 40, 40);
+            // Scale 512px source down to ~80px (40/256 * 512 = 80)
+            lv_image_set_scale(ico, 40);
+            lv_obj_set_size(ico, 80, 80);
             // Additive blend: black pixels become transparent on the dark background
             lv_obj_set_style_blend_mode(ico, LV_BLEND_MODE_ADDITIVE, LV_PART_MAIN);
         } else {
             lv_obj_t *ico = lv_label_create(tile);
             lv_label_set_text(ico, TILES[i].symbol);
-            const lv_font_t *ico_font = TILES[i].font ? TILES[i].font : &lv_font_montserrat_48;
+            const lv_font_t *ico_font = TILES[i].font ? TILES[i].font : &um_icons_80;
             lv_obj_set_style_text_font(ico, ico_font, LV_PART_MAIN);
             lv_obj_set_style_text_color(ico, TILES[i].accent, LV_PART_MAIN);
         }
@@ -518,14 +520,16 @@ void um_menu_create()
         // Title
         lv_obj_t *title_lbl = lv_label_create(tile);
         lv_label_set_text(title_lbl, TILES[i].title);
-        lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_18, LV_PART_MAIN);
+        lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_16, LV_PART_MAIN);
         lv_obj_set_style_text_color(title_lbl, um_col_text(), LV_PART_MAIN);
+        lv_obj_set_style_pad_top(title_lbl, 1, LV_PART_MAIN);
 
         // Subtitle
         lv_obj_t *sub_lbl = lv_label_create(tile);
         lv_label_set_text(sub_lbl, TILES[i].subtitle);
-        lv_obj_set_style_text_font(sub_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_set_style_text_font(sub_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
         lv_obj_set_style_text_color(sub_lbl, um_col_text_dim(), LV_PART_MAIN);
+        lv_obj_set_style_pad_top(sub_lbl, 1, LV_PART_MAIN);
         lv_label_set_long_mode(sub_lbl, LV_LABEL_LONG_CLIP);
         lv_obj_set_width(sub_lbl, lv_pct(100));
         lv_obj_set_style_text_align(sub_lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);

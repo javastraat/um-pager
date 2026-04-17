@@ -609,6 +609,7 @@ static void msg_show_reader(const char *filepath)
     lv_obj_set_style_text_font(del_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
 
     lv_obj_add_event_cb(del_btn, [](lv_event_t *) {
+        um_haptic_select();
         um_storage_remove(msg_reader_path);
         msg_close_overlay();
         msg_repopulate();
@@ -616,6 +617,7 @@ static void msg_show_reader(const char *filepath)
     lv_obj_add_event_cb(del_btn, [](lv_event_t *e) {
         uint32_t k = lv_event_get_key(e);
         if (k == LV_KEY_ENTER) {
+            um_haptic_select();
             um_storage_remove(msg_reader_path);
             msg_close_overlay();
             msg_repopulate();
@@ -641,7 +643,7 @@ static void msg_show_reader(const char *filepath)
     lv_label_set_text(close_lbl, LV_SYMBOL_LEFT "  Close");
     lv_obj_set_style_text_font(close_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
     lv_obj_set_style_text_color(close_lbl, um_col_text_dim(), LV_PART_MAIN);
-    lv_obj_add_event_cb(close_btn, [](lv_event_t *) { msg_close_overlay(); },
+    lv_obj_add_event_cb(close_btn, [](lv_event_t *) { um_haptic_select(); msg_close_overlay(); },
                         LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(close_btn, [](lv_event_t *e) {
         uint32_t k = lv_event_get_key(e);

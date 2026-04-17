@@ -881,6 +881,7 @@ static void lora_popup_open()
         lv_obj_scroll_to_y(lora_popup_cont, 0, LV_ANIM_ON);
     }, LV_EVENT_FOCUSED, NULL);
     lv_obj_add_event_cb(freq_dd, [](lv_event_t *e) {
+        um_haptic_select();
         lora_freq_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -900,6 +901,7 @@ static void lora_popup_open()
     lv_obj_set_style_border_width(sf_dd, 1, LV_PART_MAIN);
     lv_obj_add_flag(sf_dd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(sf_dd, [](lv_event_t *e) {
+        um_haptic_select();
         lora_sf_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -919,6 +921,7 @@ static void lora_popup_open()
     lv_obj_set_style_border_width(pwr_dd, 1, LV_PART_MAIN);
     lv_obj_add_flag(pwr_dd, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_add_event_cb(pwr_dd, [](lv_event_t *e) {
+        um_haptic_select();
         lora_pwr_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -949,6 +952,7 @@ static void lora_popup_open()
     lv_obj_set_style_bg_color(auto_sw, um_col_text(),
                               (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_KNOB));
     lv_obj_add_event_cb(auto_sw, [](lv_event_t *e) {
+        um_haptic_select();
         lv_obj_t *sw = (lv_obj_t *)lv_event_get_target(e);
         lora_auto_announce_on_open = lv_obj_has_state(sw, LV_STATE_CHECKED);
         lora_auto_announce_ms = millis();
@@ -1375,7 +1379,7 @@ void um_lora_create()
     lv_obj_set_style_border_width(lora_compose_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(lora_compose_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(lora_compose_btn, 2, LV_PART_MAIN);
-    lv_obj_add_event_cb(lora_compose_btn, [](lv_event_t *) { lora_compose_open(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(lora_compose_btn, [](lv_event_t *) { um_haptic_select(); lora_compose_open(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(lora_compose_btn, lora_key_bsp_cb, LV_EVENT_KEY, NULL);
     lv_obj_t *compose_lbl = lv_label_create(lora_compose_btn);
     lv_label_set_text(compose_lbl, LV_SYMBOL_ENVELOPE);

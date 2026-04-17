@@ -341,7 +341,7 @@ static void um_row_clicked_cb(lv_event_t *e)
     lv_obj_set_style_border_color(close_btn, um_col_border(), LV_PART_MAIN);
     lv_obj_set_style_border_width(close_btn, 1, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(close_btn, 0, LV_PART_MAIN);
-    lv_obj_add_event_cb(close_btn, [](lv_event_t *ev) { um_close_detail(); }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(close_btn, [](lv_event_t *ev) { um_haptic_select(); um_close_detail(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *close_lbl = lv_label_create(close_btn);
     lv_label_set_text(close_lbl, LV_SYMBOL_LEFT "  Close");
     lv_obj_set_style_text_color(close_lbl, um_col_text_dim(), LV_PART_MAIN);
@@ -495,6 +495,7 @@ static void um_popup_open()
     lv_obj_set_style_shadow_width(scan_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(scan_btn, 6, LV_PART_MAIN);
     lv_obj_add_event_cb(scan_btn, [](lv_event_t *e) {
+        um_haptic_select();
         um_popup_close();
         um_rescan();
     }, LV_EVENT_CLICKED, NULL);

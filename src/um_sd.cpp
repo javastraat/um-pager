@@ -84,11 +84,13 @@ void sd_show_preview(const char *filepath)
     lv_obj_clear_flag(sd_preview, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(sd_preview, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(sd_preview,
-        [](lv_event_t *) { sd_close_preview(); }, LV_EVENT_CLICKED, NULL);
+        [](lv_event_t *) { um_haptic_select(); sd_close_preview(); }, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(sd_preview, [](lv_event_t *e) {
         uint32_t k = lv_event_get_key(e);
-        if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE || k == LV_KEY_ENTER)
+        if (k == LV_KEY_ESC || k == LV_KEY_BACKSPACE || k == LV_KEY_ENTER) {
+            um_haptic_select();
             sd_close_preview();
+        }
     }, LV_EVENT_KEY, NULL);
 
     // Card
