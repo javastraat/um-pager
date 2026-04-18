@@ -422,9 +422,161 @@ void um_menu_create()
     lv_obj_set_style_shadow_color(pwr_btn, lv_color_make(220, 40, 40), focused);
     lv_obj_set_style_shadow_width(pwr_btn, 16, focused);
     lv_obj_set_style_shadow_opa(pwr_btn, LV_OPA_70, focused);
+    // Power button click: show power options popup (LVGL v8+ API)
     lv_obj_add_event_cb(pwr_btn, [](lv_event_t *e) {
         um_haptic_select();
-        instance.sleep((WakeupSource_t)(WAKEUP_SRC_BOOT_BUTTON | WAKEUP_SRC_ROTARY_BUTTON));
+        // Create a styled popup container (like LoRa settings)
+        lv_obj_t *popup = lv_obj_create(lv_scr_act());
+        lv_obj_set_size(popup, 220, LV_SIZE_CONTENT);
+        lv_obj_center(popup);
+        lv_obj_set_style_bg_color(popup, um_col_surface(), LV_PART_MAIN);
+        lv_obj_set_style_border_color(popup, um_col_border_focus(), LV_PART_MAIN);
+        lv_obj_set_style_border_width(popup, 2, LV_PART_MAIN);
+        lv_obj_set_style_radius(popup, 8, LV_PART_MAIN);
+        lv_obj_set_style_shadow_width(popup, 24, LV_PART_MAIN);
+        lv_obj_set_style_shadow_color(popup, um_col_border_focus(), LV_PART_MAIN);
+        lv_obj_set_style_shadow_opa(popup, LV_OPA_40, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(popup, 16, LV_PART_MAIN);
+        lv_obj_set_flex_flow(popup, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(popup, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_row(popup, 10, LV_PART_MAIN);
+
+        // Title
+        lv_obj_t *title = lv_label_create(popup);
+        lv_label_set_text(title, LV_SYMBOL_POWER "  Power Options");
+        lv_obj_set_style_text_color(title, um_col_cyan_bright(), LV_PART_MAIN);
+        lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
+
+        // Subtitle
+        lv_obj_t *subtitle = lv_label_create(popup);
+        lv_label_set_text(subtitle, "Select an action:");
+        lv_obj_set_style_text_color(subtitle, um_col_text_dim(), LV_PART_MAIN);
+        lv_obj_set_style_text_font(subtitle, &lv_font_montserrat_12, LV_PART_MAIN);
+
+        // 2x2 grid for buttons
+        lv_obj_t *btn_grid = lv_obj_create(popup);
+        lv_obj_set_width(btn_grid, lv_pct(100));
+        lv_obj_set_height(btn_grid, LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(btn_grid, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(btn_grid, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(btn_grid, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_row(btn_grid, 8, LV_PART_MAIN);
+        lv_obj_set_style_pad_column(btn_grid, 8, LV_PART_MAIN);
+        lv_obj_clear_flag(btn_grid, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(btn_grid, LV_FLEX_FLOW_ROW_WRAP);
+        lv_obj_set_flex_align(btn_grid, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        // Helper for button creation
+        auto make_btn = [](lv_obj_t *parent, const char *txt, lv_color_t color, lv_obj_t *popup) -> lv_obj_t * {
+            lv_obj_t *btn = lv_btn_create(parent);
+            lv_obj_set_size(btn, 100, 48);
+            lv_obj_set_style_bg_color(btn, color, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(btn, um_col_focus_cyan(),
+                (lv_style_selector_t)((int)LV_STATE_FOCUSED | (int)LV_PART_MAIN));
+            lv_obj_set_style_border_color(btn, um_col_border_focus(), LV_PART_MAIN);
+            lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN);
+            lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
+            lv_obj_set_style_radius(btn, 8, LV_PART_MAIN);
+            lv_obj_add_flag(btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+            lv_obj_t *lbl = lv_label_create(btn);
+            lv_label_set_text(lbl, txt);
+            lv_obj_set_style_text_color(lbl, um_col_text(), LV_PART_MAIN);
+            lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, LV_PART_MAIN);
+            lv_obj_center(lbl);
+            lv_obj_set_user_data(btn, popup);
+            return btn;
+        };
+
+        // Static event handler for all buttons
+        auto btn_handler = [](lv_event_t *e) {
+            lv_obj_t *btn = (lv_obj_t *)lv_event_get_target(e);
+            lv_obj_t *popup = (lv_obj_t *)lv_obj_get_user_data(btn);
+            const char *txt = lv_label_get_text(lv_obj_get_child(btn, 0));
+            if (strcmp(txt, "Sleep") == 0) {
+#ifndef SIM_BUILD
+                instance.decrementBrightness(0, 5, false);
+                instance.sleep((WakeupSource_t)(WAKEUP_SRC_BOOT_BUTTON | WAKEUP_SRC_ROTARY_BUTTON));
+#endif
+            } else if (strcmp(txt, "Reboot") == 0) {
+#ifndef SIM_BUILD
+                instance.decrementBrightness(0, 5, false);
+                ESP.restart();
+#endif
+            } else if (strcmp(txt, "Shutdown") == 0) {
+#ifndef SIM_BUILD
+                instance.decrementBrightness(0, 5, false);
+#if defined(USING_PPM_MANAGE)
+                instance.ppm.shutdown();
+#elif defined(USING_PMU_MANAGE)
+                instance.pmu.shutdown();
+#endif
+#endif
+            }
+            lv_obj_del(popup);
+        };
+
+        lv_obj_t *btn_sleep    = make_btn(btn_grid, "Sleep", UM_COL(0,50,20, 200,242,215), popup);
+        lv_obj_t *btn_reboot   = make_btn(btn_grid, "Reboot", UM_COL(0,30,50, 200,220,242), popup);
+        lv_obj_t *btn_shutdown = make_btn(btn_grid, "Shutdown", UM_COL(50,40,0, 242,230,190), popup);
+        lv_obj_t *btn_cancel   = make_btn(btn_grid, "Cancel", UM_COL(30,20,20, 242,215,215), popup);
+
+        // Trap focus inside popup: create a new group and assign it to all encoder/keypad indvs
+        lv_group_t *old_group = lv_group_get_default();
+        lv_group_t *popup_group = lv_group_create();
+        lv_group_add_obj(popup_group, btn_sleep);
+        lv_group_add_obj(popup_group, btn_reboot);
+        lv_group_add_obj(popup_group, btn_shutdown);
+        lv_group_add_obj(popup_group, btn_cancel);
+        lv_group_focus_obj(btn_sleep);
+        lv_group_set_default(popup_group);
+
+        // Reassign input devices so encoder/keypad events reach the popup group
+        {
+            lv_indev_t *indev = NULL;
+            while ((indev = lv_indev_get_next(indev)) != NULL) {
+                lv_indev_type_t t = lv_indev_get_type(indev);
+                if (t == LV_INDEV_TYPE_ENCODER || t == LV_INDEV_TYPE_KEYPAD)
+                    lv_indev_set_group(indev, popup_group);
+            }
+        }
+
+        lv_obj_add_event_cb(btn_sleep,    btn_handler, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn_reboot,   btn_handler, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(btn_shutdown, btn_handler, LV_EVENT_CLICKED, NULL);
+        // Cancel just closes the popup
+        auto btn_cancel_handler = [](lv_event_t *e) {
+            lv_obj_t *btn = (lv_obj_t *)lv_event_get_target(e);
+            lv_obj_t *popup = (lv_obj_t *)lv_obj_get_user_data(btn);
+            lv_obj_del(popup);
+        };
+        lv_obj_add_event_cb(btn_cancel, btn_cancel_handler, LV_EVENT_CLICKED, NULL);
+
+        // Restore input devices and group when popup is deleted
+        struct PopupGroupRestoreCtx {
+            lv_group_t *old_group;
+            lv_group_t *popup_group;
+        };
+        static PopupGroupRestoreCtx restore_ctx;
+        restore_ctx.old_group  = old_group;
+        restore_ctx.popup_group = popup_group;
+        lv_obj_add_event_cb(popup, [](lv_event_t *e) {
+            if (lv_event_get_code(e) == LV_EVENT_DELETE) {
+                PopupGroupRestoreCtx *ctx = (PopupGroupRestoreCtx *)lv_event_get_user_data(e);
+                lv_group_set_default(ctx->old_group);
+                lv_indev_t *indev = NULL;
+                while ((indev = lv_indev_get_next(indev)) != NULL) {
+                    lv_indev_type_t t = lv_indev_get_type(indev);
+                    if (t == LV_INDEV_TYPE_ENCODER || t == LV_INDEV_TYPE_KEYPAD)
+                        lv_indev_set_group(indev, ctx->old_group);
+                }
+                lv_group_del(ctx->popup_group);
+                if (menu_tiles[menu_focused])
+                    lv_group_focus_obj(menu_tiles[menu_focused]);
+            }
+        }, LV_EVENT_DELETE, &restore_ctx);
+
+        // Make popup larger for readability
+        lv_obj_set_size(popup, 260, 200);
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *pwr_lbl = lv_label_create(pwr_btn);
     lv_label_set_text(pwr_lbl, LV_SYMBOL_POWER);
