@@ -1,4 +1,4 @@
-RANGES="0xe8bf,0xe1bb,0xe1e2,0xe623,0xe158,0xe8b8,0xe88e,0xe887"
+RANGES="0xe8bf,0xe1bb,0xe1e2,0xe623,0xe158,0xe8b8,0xe88e,0xe887,0xe1b3"
 FONT="MaterialIcons-Regular.ttf"
 PATCH='s/#ifdef LV_LVGL_H_INCLUDE_SIMPLE/#ifdef __has_include\n    #if __has_include("lvgl.h")\n        #ifndef LV_LVGL_H_INCLUDE_SIMPLE\n            #define LV_LVGL_H_INCLUDE_SIMPLE\n        #endif\n    #endif\n#endif\n\n#ifdef LV_LVGL_H_INCLUDE_SIMPLE/'
 

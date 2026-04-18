@@ -33,6 +33,7 @@ static const MenuTile TILES[] = {
     { UM_SYMBOL_ANTENNA,  "LoRa",     "LoRa Radio",    um_accent_lora(),     UM_SCREEN_LORA,     &um_icons_80 },
     { UM_SYMBOL_MAILBOX,  "Mailbox",  "Inbox & Send",  um_accent_messages(), UM_SCREEN_MESSAGES, &um_icons_80 },
     { UM_SYMBOL_NFC,      "NFC",      "NFC Reader",    um_accent_nfc(),      UM_SCREEN_NFC,      &um_icons_80 },
+    { UM_SYMBOL_GPS,      "GPS",      "Location",      um_accent_gps(),      UM_SCREEN_GPS,      &um_icons_80 },
     { UM_SYMBOL_SD_CARD,  "Storage",  "SD Card files", um_accent_sd(),       UM_SCREEN_SD,       &um_icons_80 },
     { UM_SYMBOL_SETTINGS, "Settings", "Device Config", um_accent_settings(), UM_SCREEN_SETTINGS, &um_icons_80 },
     { UM_SYMBOL_INFO,     "Info",     "System & OTA",  um_accent_info(),     UM_SCREEN_INFO,     &um_icons_80 },
@@ -44,7 +45,7 @@ static const int TILE_COUNT = sizeof(TILES) / sizeof(TILES[0]);
 // State
 // -------------------------------------------------------
 static lv_obj_t   *menu_root          = NULL;
-static lv_obj_t   *menu_tiles[8]      = {};
+static lv_obj_t   *menu_tiles[sizeof(TILES)/sizeof(TILES[0])] = {};
 static int         menu_focused       = 0;
 static lv_obj_t   *menu_time_lbl      = NULL;  // topbar clock
 static lv_obj_t   *menu_app_icon      = NULL;  // topbar left icon (um_icons_14)

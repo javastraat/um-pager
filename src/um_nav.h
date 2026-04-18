@@ -13,6 +13,7 @@ typedef enum {
     UM_SCREEN_LORA,
     UM_SCREEN_INFO,
     UM_SCREEN_SD,
+    UM_SCREEN_GPS,
 } UMScreen;
 
 // Forward declarations — implemented in each .cpp
@@ -37,6 +38,8 @@ void um_nfc_destroy();
 void um_nfc_loop();    // call from Arduino loop() while NFC screen is active
 void um_sd_create();
 void um_sd_destroy();
+void um_gps_create();
+void um_gps_destroy();
 
 // -------------------------------------------------------
 // Navigator — go to a screen, or go back to menu
@@ -55,6 +58,7 @@ static void um_nav_destroy_current()
         case UM_SCREEN_LORA:     um_lora_destroy();     break;
         case UM_SCREEN_INFO:     um_info_destroy();     break;
         case UM_SCREEN_SD:       um_sd_destroy();       break;
+        case UM_SCREEN_GPS:      um_gps_destroy();      break;
     }
 }
 
@@ -72,6 +76,7 @@ static void um_nav_go(UMScreen screen)
         case UM_SCREEN_LORA:     um_lora_create();     break;
         case UM_SCREEN_INFO:     um_info_create();     break;
         case UM_SCREEN_SD:       um_sd_create();       break;
+        case UM_SCREEN_GPS:      um_gps_create();      break;
     }
 }
 

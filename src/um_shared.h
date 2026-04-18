@@ -14,6 +14,7 @@ static inline lv_color_t um_accent_sd()       { return UM_COL(160,120, 60, 120, 
 static inline lv_color_t um_accent_settings() { return UM_COL(200,160,  0, 150,112,  0); }
 static inline lv_color_t um_accent_info()     { return UM_COL(120, 80,220,  85, 52,185); }
 static inline lv_color_t um_accent_help()     { return UM_COL(180,180,180, 100,105,120); }
+static inline lv_color_t um_accent_gps()      { return UM_COL(120,210,  0,  75,158,  0); }
 
 // ---------------------------------------------------------------------------
 // Custom Material Icons — rendered via um_icons / um_icons_14 font
@@ -27,6 +28,7 @@ static inline lv_color_t um_accent_help()     { return UM_COL(180,180,180, 100,1
 #define UM_SYMBOL_SETTINGS  "\xEE\xA2\xB8"  // U+E8B8 settings
 #define UM_SYMBOL_INFO      "\xEE\xA2\x8E"  // U+E88E info
 #define UM_SYMBOL_HELP      "\xEE\xA2\x87"  // U+E887 help
+#define UM_SYMBOL_GPS       "\xEE\x86\xB3"  // U+E1B3 gps_fixed
 
 // Shared flags and settings between screens and main loop
 extern volatile bool       um_otaRequested;
