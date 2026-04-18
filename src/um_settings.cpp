@@ -503,6 +503,7 @@ void um_settings_create()
 void um_settings_destroy()
 {
     if (!settings_root) return;
+    um_settings_save();
     lv_group_t *g = lv_group_get_default();
     if (g) lv_group_remove_all_objs(g);
     lv_obj_del(settings_root);

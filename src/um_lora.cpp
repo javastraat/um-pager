@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #ifndef SIM_BUILD
 #include <ArduinoJson.h>
+#include <Preferences.h>
 #endif
 #include <LilyGoLib.h>
 #include <LV_Helper.h>
@@ -38,6 +39,11 @@ static const float lora_freqs[] = {
     2400.0, 2425.0, 2450.0, 2475.0, 2483.5
 };
 static const int LORA_FREQ_COUNT = (int)(sizeof(lora_freqs) / sizeof(lora_freqs[0]));
+// Default radio settings — SF9, 22 dBm, freq index 0
+#define LORA_DEFAULT_FREQ_IDX 0  // 868.000 MHz
+#define LORA_DEFAULT_SF_IDX   2  // SF9  — Balanced
+#define LORA_DEFAULT_PWR_IDX  5  // 22 dBm — Boost
+
 static int lora_freq_idx = 0;       // index of active/connected frequency
 
 // -------------------------------------------------------
@@ -171,6 +177,36 @@ static void lora_send_info_reply(const uint8_t *destMac, uint8_t appId);
 bool um_lora_background_active()
 {
     return lora_service_running;
+}
+
+static void lora_settings_load()
+{
+#ifndef SIM_BUILD
+    Preferences p;
+    p.begin("lora", true);
+    lora_freq_idx         = (int)p.getUChar("freq_idx", LORA_DEFAULT_FREQ_IDX);
+    lora_sf_idx           = (int)p.getUChar("sf_idx",   LORA_DEFAULT_SF_IDX);
+    lora_pwr_idx          = (int)p.getUChar("pwr_idx",  LORA_DEFAULT_PWR_IDX);
+    lora_announce_on_open = p.getBool("ann_open",  true);
+    lora_auto_announce_on = p.getBool("auto_ann",  false);
+    lora_heartbeat_on     = p.getBool("heartbeat", true);
+    p.end();
+#endif
+}
+
+static void lora_settings_save()
+{
+#ifndef SIM_BUILD
+    Preferences p;
+    p.begin("lora", false);
+    p.putUChar("freq_idx", (uint8_t)lora_freq_idx);
+    p.putUChar("sf_idx",   (uint8_t)lora_sf_idx);
+    p.putUChar("pwr_idx",  (uint8_t)lora_pwr_idx);
+    p.putBool("ann_open",  lora_announce_on_open);
+    p.putBool("auto_ann",  lora_auto_announce_on);
+    p.putBool("heartbeat", lora_heartbeat_on);
+    p.end();
+#endif
 }
 
 void lora_queue_message(const char *msg, uint8_t appId)
@@ -840,11 +876,6 @@ static void lora_compose_submit()
     lora_compose_close();
 }
 
-// Default radio settings — SF9, 22 dBm, freq index 0
-#define LORA_DEFAULT_SF_IDX  2   // SF9  — Balanced
-#define LORA_DEFAULT_PWR_IDX 5   // 22 dBm — Boost
-#define LORA_DEFAULT_FREQ_IDX 0  // 868.000 MHz
-
 static void lora_popup_open()
 {
     if (lora_popup_cont) return;
@@ -1126,6 +1157,7 @@ static void lora_popup_open()
     lv_obj_set_style_radius(apply_btn, 6, LV_PART_MAIN);
     lv_obj_add_event_cb(apply_btn, [](lv_event_t *e) {
         um_haptic_select();
+        lora_settings_save();
         lora_freq_change_req = true;
         lora_popup_close();
     }, LV_EVENT_CLICKED, NULL);
@@ -1155,15 +1187,16 @@ static void lora_popup_open()
         lora_freq_idx = LORA_DEFAULT_FREQ_IDX;
         lora_sf_idx   = LORA_DEFAULT_SF_IDX;
         lora_pwr_idx  = LORA_DEFAULT_PWR_IDX;
-        lora_announce_on_open = false;
+        lora_announce_on_open = true;
         lora_auto_announce_on = false;
-        lora_heartbeat_on     = false;
+        lora_heartbeat_on     = true;
         lv_dropdown_set_selected(ctx->freq_dd, (uint16_t)lora_freq_idx);
         lv_dropdown_set_selected(ctx->sf_dd,   (uint16_t)lora_sf_idx);
         lv_dropdown_set_selected(ctx->pwr_dd,  (uint16_t)lora_pwr_idx);
         lv_obj_clear_state(ctx->auto_sw, LV_STATE_CHECKED);
-        lv_obj_clear_state(ctx->ann_sw,  LV_STATE_CHECKED);
-        lv_obj_clear_state(ctx->hb_sw,   LV_STATE_CHECKED);
+        lv_obj_add_state(ctx->ann_sw,  LV_STATE_CHECKED);
+        lv_obj_add_state(ctx->hb_sw,   LV_STATE_CHECKED);
+        lora_settings_save();
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *def_lbl = lv_label_create(def_btn);
     lv_label_set_text(def_lbl, LV_SYMBOL_REFRESH "  Defaults");
@@ -1408,6 +1441,7 @@ void um_lora_create()
 #ifndef SIM_BUILD
     if (!lora_mutex) lora_mutex = xSemaphoreCreateMutex();
     if (!lora_task) {
+        lora_settings_load();
         hw_radio_begin();
         first_start = true;
         lora_service_running = true;
