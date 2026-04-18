@@ -70,11 +70,11 @@ static inline lv_color_t um_col_text_dim()
 
 // Hint bar, node name, placeholder text
 static inline lv_color_t um_col_text_hint()
-    { return _um_dark() ? lv_color_make(125,128,142) : lv_color_make(148,150,168); }
+    { return _um_dark() ? lv_color_make(185,187,200) : lv_color_make( 65, 67, 85); }
 
-// Inactive icons / greyed-out indicators
+// Inactive icons / greyed-out indicators (visible neutral; colored when active)
 static inline lv_color_t um_col_text_inactive()
-    { return _um_dark() ? lv_color_make( 68, 68, 80) : lv_color_make(178,180,198); }
+    { return _um_dark() ? lv_color_make(170,172,188) : lv_color_make( 80, 82,100); }
 
 // -------------------------------------------------------
 // Accent colours — adjusted for legibility on each theme

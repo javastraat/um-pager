@@ -11,6 +11,8 @@
 #include "um_shared.h"
 #include "helpers/um_haptic.h"
 
+LV_FONT_DECLARE(um_icons_14);
+
 // -------------------------------------------------------
 // State
 // -------------------------------------------------------
@@ -55,7 +57,7 @@ static lv_obj_t *gps_make_row(lv_obj_t *parent, const char *caption)
     lv_obj_set_width(cap, 68);
 
     lv_obj_t *val = lv_label_create(row);
-    lv_label_set_text(val, "\xe2\x80\x94");   // em dash placeholder
+    lv_label_set_text(val, "--");   // em dash placeholder
     lv_obj_set_style_text_font(val, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(val, um_col_text(), LV_PART_MAIN);
     lv_obj_set_flex_grow(val, 1);
@@ -68,35 +70,47 @@ static lv_obj_t *gps_make_row(lv_obj_t *parent, const char *caption)
 static void gps_timer_cb(lv_timer_t *)
 {
 #ifndef SIM_BUILD
-    bool fix  = instance.gps.location.isValid();
+    bool fix    = instance.gps.location.isValid();
     bool hasSat = instance.gps.satellites.isValid();
 
-    // Fix dot colour
-    if (gps_fix_dot)
-        lv_obj_set_style_bg_color(gps_fix_dot,
-            fix ? um_col_ok() : um_col_err(), LV_PART_MAIN);
+    static bool last_fix = false;
+    if (fix != last_fix) {
+        last_fix = fix;
+        Serial.printf("[GPS] fix=%d sats=%u chars=%lu lat=%.6f lon=%.6f alt=%.1f\n",
+                      fix,
+                      hasSat ? instance.gps.satellites.value() : 0,
+                      instance.gps.charsProcessed(),
+                      fix ? instance.gps.location.lat() : 0.0,
+                      fix ? instance.gps.location.lng() : 0.0,
+                      instance.gps.altitude.isValid() ? instance.gps.altitude.meters() : 0.0);
+    }
 
-    if (gps_fix_lbl)
-        lv_label_set_text(gps_fix_lbl, fix ? "FIX" : "NO FIX");
-    if (gps_fix_lbl)
-        lv_obj_set_style_text_color(gps_fix_lbl,
-            fix ? um_col_ok() : um_col_err(), LV_PART_MAIN);
+    bool hasChars  = instance.gps.charsProcessed() > 0;
+    lv_color_t fix_col = fix ? um_col_ok() : (hasChars ? um_col_warn() : um_col_err());
+
+    if (gps_fix_dot)
+        lv_obj_set_style_bg_color(gps_fix_dot, fix_col, LV_PART_MAIN);
+
+    if (gps_fix_lbl) {
+        lv_label_set_text(gps_fix_lbl, fix ? "FIX" : (hasChars ? "Waiting for fix..." : "NO SIGNAL"));
+        lv_obj_set_style_text_color(gps_fix_lbl, fix_col, LV_PART_MAIN);
+    }
 
     if (gps_sat_lbl) {
         if (hasSat)
-            lv_label_set_text_fmt(gps_sat_lbl, "%u sats", instance.gps.satellites.value());
+            lv_label_set_text_fmt(gps_sat_lbl, "%u", instance.gps.satellites.value());
         else
-            lv_label_set_text(gps_sat_lbl, "— sats");
+            lv_label_set_text(gps_sat_lbl, "--");
     }
 
     // Coordinates
     if (gps_lat_lbl) {
         if (fix) lv_label_set_text_fmt(gps_lat_lbl, "%.6f\xc2\xb0", instance.gps.location.lat());
-        else     lv_label_set_text(gps_lat_lbl, "\xe2\x80\x94");
+        else     lv_label_set_text(gps_lat_lbl, "--");
     }
     if (gps_lon_lbl) {
         if (fix) lv_label_set_text_fmt(gps_lon_lbl, "%.6f\xc2\xb0", instance.gps.location.lng());
-        else     lv_label_set_text(gps_lon_lbl, "\xe2\x80\x94");
+        else     lv_label_set_text(gps_lon_lbl, "--");
     }
 
     // Altitude
@@ -104,7 +118,7 @@ static void gps_timer_cb(lv_timer_t *)
         if (instance.gps.altitude.isValid())
             lv_label_set_text_fmt(gps_alt_lbl, "%.1f m", instance.gps.altitude.meters());
         else
-            lv_label_set_text(gps_alt_lbl, "\xe2\x80\x94");
+            lv_label_set_text(gps_alt_lbl, "--");
     }
 
     // Speed
@@ -112,7 +126,7 @@ static void gps_timer_cb(lv_timer_t *)
         if (instance.gps.speed.isValid())
             lv_label_set_text_fmt(gps_spd_lbl, "%.1f km/h", instance.gps.speed.kmph());
         else
-            lv_label_set_text(gps_spd_lbl, "\xe2\x80\x94");
+            lv_label_set_text(gps_spd_lbl, "--");
     }
 
     // Course
@@ -122,7 +136,7 @@ static void gps_timer_cb(lv_timer_t *)
                                   instance.gps.course.deg(),
                                   TinyGPSPlus::cardinal(instance.gps.course.deg()));
         else
-            lv_label_set_text(gps_crs_lbl, "\xe2\x80\x94");
+            lv_label_set_text(gps_crs_lbl, "--");
     }
 
     // HDOP
@@ -130,7 +144,7 @@ static void gps_timer_cb(lv_timer_t *)
         if (instance.gps.hdop.isValid())
             lv_label_set_text_fmt(gps_hdop_lbl, "%.2f", instance.gps.hdop.hdop());
         else
-            lv_label_set_text(gps_hdop_lbl, "\xe2\x80\x94");
+            lv_label_set_text(gps_hdop_lbl, "--");
     }
 
     // Date / time
@@ -141,7 +155,7 @@ static void gps_timer_cb(lv_timer_t *)
                                   instance.gps.date.month(),
                                   instance.gps.date.day());
         else
-            lv_label_set_text(gps_date_lbl, "\xe2\x80\x94");
+            lv_label_set_text(gps_date_lbl, "--");
     }
     if (gps_time_lbl) {
         if (instance.gps.time.isValid())
@@ -150,26 +164,26 @@ static void gps_timer_cb(lv_timer_t *)
                                   instance.gps.time.minute(),
                                   instance.gps.time.second());
         else
-            lv_label_set_text(gps_time_lbl, "\xe2\x80\x94");
+            lv_label_set_text(gps_time_lbl, "--");
     }
 
     // Raw chars received
     if (gps_chars_lbl)
-        lv_label_set_text_fmt(gps_chars_lbl, "%lu chars", instance.gps.charsProcessed());
+        lv_label_set_text_fmt(gps_chars_lbl, "%lu", instance.gps.charsProcessed());
 
 #else
     // Simulator placeholder
     if (gps_fix_dot)  lv_obj_set_style_bg_color(gps_fix_dot, um_col_text_inactive(), LV_PART_MAIN);
     if (gps_fix_lbl)  { lv_label_set_text(gps_fix_lbl, "SIM"); lv_obj_set_style_text_color(gps_fix_lbl, um_col_text_dim(), LV_PART_MAIN); }
-    if (gps_sat_lbl)  lv_label_set_text(gps_sat_lbl,  "— sats");
-    if (gps_lat_lbl)  lv_label_set_text(gps_lat_lbl,  "\xe2\x80\x94");
-    if (gps_lon_lbl)  lv_label_set_text(gps_lon_lbl,  "\xe2\x80\x94");
-    if (gps_alt_lbl)  lv_label_set_text(gps_alt_lbl,  "\xe2\x80\x94");
-    if (gps_spd_lbl)  lv_label_set_text(gps_spd_lbl,  "\xe2\x80\x94");
-    if (gps_crs_lbl)  lv_label_set_text(gps_crs_lbl,  "\xe2\x80\x94");
-    if (gps_hdop_lbl) lv_label_set_text(gps_hdop_lbl, "\xe2\x80\x94");
-    if (gps_date_lbl) lv_label_set_text(gps_date_lbl, "\xe2\x80\x94");
-    if (gps_time_lbl) lv_label_set_text(gps_time_lbl, "\xe2\x80\x94");
+    if (gps_sat_lbl)  lv_label_set_text(gps_sat_lbl,  "--");
+    if (gps_lat_lbl)  lv_label_set_text(gps_lat_lbl,  "--");
+    if (gps_lon_lbl)  lv_label_set_text(gps_lon_lbl,  "--");
+    if (gps_alt_lbl)  lv_label_set_text(gps_alt_lbl,  "--");
+    if (gps_spd_lbl)  lv_label_set_text(gps_spd_lbl,  "--");
+    if (gps_crs_lbl)  lv_label_set_text(gps_crs_lbl,  "--");
+    if (gps_hdop_lbl) lv_label_set_text(gps_hdop_lbl, "--");
+    if (gps_date_lbl) lv_label_set_text(gps_date_lbl, "--");
+    if (gps_time_lbl) lv_label_set_text(gps_time_lbl, "--");
     if (gps_chars_lbl)lv_label_set_text(gps_chars_lbl,"— chars");
 #endif
 }
@@ -198,13 +212,56 @@ void um_gps_create()
     lv_obj_set_style_bg_color(hdr, um_col_surface(), LV_PART_MAIN);
     lv_obj_set_style_border_width(hdr, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(hdr, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_hor(hdr, 8, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(hdr, 12, LV_PART_MAIN);
     lv_obj_set_style_pad_ver(hdr, 6, LV_PART_MAIN);
     lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // Home button
+    // Left: icon + title in one transparent container (so SPACE_BETWEEN sees 3 items)
+    lv_obj_t *title_cont = lv_obj_create(hdr);
+    lv_obj_set_size(title_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(title_cont, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(title_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(title_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(title_cont, 4, LV_PART_MAIN);
+    lv_obj_clear_flag(title_cont, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(title_cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(title_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *title_icon = lv_label_create(title_cont);
+    lv_label_set_text(title_icon, UM_SYMBOL_GPS);
+    lv_obj_set_style_text_font(title_icon, &um_icons_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(title_icon, um_accent_gps(), LV_PART_MAIN);
+
+    lv_obj_t *title_lbl = lv_label_create(title_cont);
+    lv_label_set_text(title_lbl, "GPS");
+    lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_set_style_text_color(title_lbl, um_accent_gps(), LV_PART_MAIN);
+
+    // Middle: fix status (dot + label)
+    lv_obj_t *fix_row = lv_obj_create(hdr);
+    lv_obj_set_size(fix_row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(fix_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(fix_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(fix_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(fix_row, 5, LV_PART_MAIN);
+    lv_obj_clear_flag(fix_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(fix_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(fix_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    gps_fix_dot = lv_obj_create(fix_row);
+    lv_obj_set_size(gps_fix_dot, 8, 8);
+    lv_obj_set_style_radius(gps_fix_dot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(gps_fix_dot, um_col_text_inactive(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(gps_fix_dot, 0, LV_PART_MAIN);
+
+    gps_fix_lbl = lv_label_create(fix_row);
+    lv_label_set_text(gps_fix_lbl, "NO SIGNAL");
+    lv_obj_set_style_text_font(gps_fix_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(gps_fix_lbl, um_col_err(), LV_PART_MAIN);
+
+    // Right: home button
     lv_obj_t *home_btn = lv_btn_create(hdr);
     lv_obj_set_size(home_btn, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(home_btn, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -219,60 +276,6 @@ void um_gps_create()
     lv_label_set_text(home_lbl, LV_SYMBOL_HOME);
     lv_obj_set_style_text_color(home_lbl, um_col_text_dim(), LV_PART_MAIN);
 
-    // Title
-    lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text(title, UM_SYMBOL_GPS "  GPS");
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_obj_set_style_text_color(title, um_accent_gps(), LV_PART_MAIN);
-    lv_obj_set_style_pad_left(title, 8, LV_PART_MAIN);
-    lv_obj_set_flex_grow(title, 1);
-
-    // Sat count in topbar
-    gps_sat_lbl = lv_label_create(hdr);
-    lv_label_set_text(gps_sat_lbl, "— sats");
-    lv_obj_set_style_text_font(gps_sat_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(gps_sat_lbl, um_col_text_dim(), LV_PART_MAIN);
-
-    // Accent separator line
-    lv_obj_t *sep = lv_obj_create(gps_root);
-    lv_obj_set_width(sep, lv_pct(100));
-    lv_obj_set_height(sep, 2);
-    lv_obj_set_style_bg_color(sep, um_accent_gps(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(sep, LV_OPA_40, LV_PART_MAIN);
-    lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(sep, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(sep, 0, LV_PART_MAIN);
-
-    // ---- Fix status strip ----
-    lv_obj_t *status = lv_obj_create(gps_root);
-    lv_obj_set_width(status, lv_pct(100));
-    lv_obj_set_height(status, 30);
-    lv_obj_set_style_bg_color(status, um_col_surface(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(status, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(status, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_hor(status, 12, LV_PART_MAIN);
-    lv_obj_set_style_pad_ver(status, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(status, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_flex_flow(status, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(status, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(status, 8, LV_PART_MAIN);
-
-    gps_fix_dot = lv_obj_create(status);
-    lv_obj_set_size(gps_fix_dot, 10, 10);
-    lv_obj_set_style_radius(gps_fix_dot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(gps_fix_dot, um_col_text_inactive(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(gps_fix_dot, 0, LV_PART_MAIN);
-
-    gps_fix_lbl = lv_label_create(status);
-    lv_label_set_text(gps_fix_lbl, "NO FIX");
-    lv_obj_set_style_text_font(gps_fix_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_set_style_text_color(gps_fix_lbl, um_col_err(), LV_PART_MAIN);
-    lv_obj_set_flex_grow(gps_fix_lbl, 1);
-
-    gps_chars_lbl = lv_label_create(status);
-    lv_label_set_text(gps_chars_lbl, "— chars");
-    lv_obj_set_style_text_font(gps_chars_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(gps_chars_lbl, um_col_text_hint(), LV_PART_MAIN);
 
     // ---- Two-column data grid ----
     lv_obj_t *grid = lv_obj_create(gps_root);
@@ -318,15 +321,20 @@ void um_gps_create()
     gps_spd_lbl = gps_make_row(col_l, "Speed");
     gps_crs_lbl = gps_make_row(col_l, "Course");
 
-    // Right: HDOP, Date, Time
-    gps_hdop_lbl = gps_make_row(col_r, "HDOP");
-    gps_date_lbl = gps_make_row(col_r, "Date");
-    gps_time_lbl = gps_make_row(col_r, "Time UTC");
+    // Right: HDOP, Date, Time, Satellites, Chars
+    gps_hdop_lbl  = gps_make_row(col_r, "HDOP");
+    gps_date_lbl  = gps_make_row(col_r, "Date");
+    gps_time_lbl  = gps_make_row(col_r, "Time UTC");
+    gps_sat_lbl   = gps_make_row(col_r, "Satellites");
+    gps_chars_lbl = gps_make_row(col_r, "NMEA chars");
 
     // Init GPS hardware on first open
 #ifndef SIM_BUILD
     if (!gps_started) {
         gps_started = instance.initGPS();
+        Serial.printf("[GPS] initGPS() -> %s\n", gps_started ? "OK" : "FAIL");
+    } else {
+        Serial.println("[GPS] screen reopened, GPS already running");
     }
 #endif
 
@@ -340,6 +348,23 @@ void um_gps_create()
     // Start polling timer — run once immediately then every second
     gps_timer = lv_timer_create(gps_timer_cb, GPS_POLL_MS, NULL);
     lv_timer_ready(gps_timer);
+}
+
+bool um_gps_has_fix()
+{
+#ifndef SIM_BUILD
+    return gps_started && instance.gps.location.isValid();
+#else
+    return false;
+#endif
+}
+
+void um_gps_loop()
+{
+#ifndef SIM_BUILD
+    if (gps_started)
+        instance.gps.loop();
+#endif
 }
 
 void um_gps_destroy()

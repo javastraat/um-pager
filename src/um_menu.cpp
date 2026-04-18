@@ -52,6 +52,7 @@ static lv_obj_t   *menu_app_icon      = NULL;  // topbar left icon (um_icons_14)
 static lv_obj_t   *menu_app_lbl       = NULL;  // topbar left label
 static lv_obj_t   *menu_coord_icon    = NULL;  // topbar coordinator indicator
 static lv_obj_t   *menu_lora_icon     = NULL;  // topbar LoRa background indicator
+static lv_obj_t   *menu_gps_icon      = NULL;  // topbar GPS fix indicator
 static lv_timer_t *menu_topbar_timer  = NULL;
 static lv_obj_t   *menu_msg_badge_lbl = NULL;  // Messages tile unread badge
 static lv_obj_t   *menu_bat_lbl       = NULL;  // Topbar battery indicator
@@ -231,6 +232,12 @@ static void menu_topbar_update_cb(lv_timer_t *)
             LV_PART_MAIN);
     }
 
+    if (menu_gps_icon) {
+        lv_obj_set_style_text_color(menu_gps_icon,
+            um_gps_has_fix() ? um_accent_gps() : um_col_text_inactive(),
+            LV_PART_MAIN);
+    }
+
     // ---- App / server label ----
     if (menu_app_lbl && menu_app_icon) {
         if (um_msg_server_name[0] != '\0') {
@@ -383,6 +390,12 @@ void um_menu_create()
     lv_obj_set_style_text_color(menu_lora_icon,
                                 um_lora_background_active() ? um_col_orange() : um_col_text_inactive(),
                                 LV_PART_MAIN);
+
+    // GPS fix indicator: green = fix, gray = no fix / not started
+    menu_gps_icon = lv_label_create(right_box);
+    lv_label_set_text(menu_gps_icon, UM_SYMBOL_GPS);
+    lv_obj_set_style_text_font(menu_gps_icon, &um_icons_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(menu_gps_icon, um_col_text_inactive(), LV_PART_MAIN);
 
     // Battery indicator
     menu_bat_lbl = lv_label_create(right_box);
@@ -561,6 +574,7 @@ void um_menu_destroy()
     menu_app_lbl       = NULL;
     menu_coord_icon    = NULL;
     menu_lora_icon     = NULL;
+    menu_gps_icon      = NULL;
     menu_msg_badge_lbl = NULL;
     menu_bat_lbl       = NULL;
     lv_group_t *g = lv_group_get_default();

@@ -40,6 +40,8 @@ void um_sd_create();
 void um_sd_destroy();
 void um_gps_create();
 void um_gps_destroy();
+void um_gps_loop();
+bool um_gps_has_fix();
 
 // -------------------------------------------------------
 // Navigator — go to a screen, or go back to menu

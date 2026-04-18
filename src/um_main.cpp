@@ -86,6 +86,7 @@ void loop()
     }
 
     um_nfc_loop();     // drives RFAL state machine when NFC screen is active
+    um_gps_loop();     // pumps GPS serial bytes into TinyGPSPlus parser
     instance.loop();
     lv_timer_handler();
 
