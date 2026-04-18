@@ -63,14 +63,9 @@ void um_welcome_create()
     lv_obj_set_flex_align(welcome_root, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(welcome_root, 6, LV_PART_MAIN);
 
-    // PWA icon — scale 40/256 ≈ 80px from the 512px source.
-    // Size must be set explicitly so the flex layout doesn't see 512×512.
     lv_obj_t *img = lv_image_create(welcome_root);
     lv_image_set_src(img, &um_logo_small_dsc);
-    lv_obj_set_size(img, 100, 100);
-    // Additive blend: black (0,0,0) pixels add nothing to the background,
-    // making the logo's black fill transparent on any dark background.
-    lv_obj_set_style_blend_mode(img, LV_BLEND_MODE_ADDITIVE, LV_PART_MAIN);
+    lv_obj_set_size(img, 80, 80);
 
     // Title
     lv_obj_t *title = lv_label_create(welcome_root);
@@ -90,13 +85,13 @@ void um_welcome_create()
     lv_obj_t *sub = lv_label_create(welcome_root);
     lv_label_set_text(sub, "Mesh Networking with ESP");
     lv_obj_set_style_text_font(sub, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_obj_set_style_text_color(sub, um_col_text_hint(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(sub, um_col_text_sub(), LV_PART_MAIN);
 
     // Node name
     lv_obj_t *node = lv_label_create(welcome_root);
     lv_label_set_text(node, NODE_NAME);
     lv_obj_set_style_text_font(node, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(node, um_col_text_inactive(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(node, um_col_text_dim(), LV_PART_MAIN);
 
     welcome_timer = lv_timer_create(welcome_done_cb, UM_WELCOME_DURATION_MS, NULL);
     lv_timer_set_repeat_count(welcome_timer, 1);

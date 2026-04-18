@@ -480,11 +480,8 @@ void um_menu_create()
         if (TILES[i].symbol == NULL) {
             lv_obj_t *ico = lv_image_create(tile);
             lv_image_set_src(ico, &um_logo_dsc);
-            // Scale 512px source down to ~80px (40/256 * 512 = 80)
-            lv_image_set_scale(ico, 40);
+            lv_image_set_scale(ico, 256);
             lv_obj_set_size(ico, 80, 80);
-            // Additive blend: black pixels become transparent on the dark background
-            lv_obj_set_style_blend_mode(ico, LV_BLEND_MODE_ADDITIVE, LV_PART_MAIN);
         } else {
             lv_obj_t *ico = lv_label_create(tile);
             lv_label_set_text(ico, TILES[i].symbol);
