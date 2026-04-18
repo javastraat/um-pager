@@ -505,11 +505,7 @@ void um_menu_create()
             } else if (strcmp(txt, "Shutdown") == 0) {
 #ifndef SIM_BUILD
                 instance.decrementBrightness(0, 5, false);
-#if defined(USING_PPM_MANAGE)
-                instance.ppm.shutdown();
-#elif defined(USING_PMU_MANAGE)
-                instance.pmu.shutdown();
-#endif
+                instance.ppm.shutdown(); // BQ25896: cuts battery FET (won't work if USB connected)
 #endif
             }
             lv_obj_del(popup);
