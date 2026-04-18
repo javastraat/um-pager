@@ -102,8 +102,12 @@ static volatile uint8_t lora_status_state = LORA_STATUS_LISTENING;
 static volatile bool lora_announce_show_toast = false;
 static volatile bool lora_service_running = false;
 static volatile bool lora_screen_active   = false;
-static bool lora_auto_announce_on_open    = true;
+static bool lora_announce_on_open         = false;
+static bool lora_auto_announce_on         = false;
 static uint32_t lora_auto_announce_ms     = 0;
+static bool lora_heartbeat_on             = false;
+static uint32_t lora_heartbeat_ms         = 0;
+static volatile bool lora_heartbeat_req   = false;
 static uint8_t lora_msg_app_id            = 0x01;
 static char lora_msg_outbox[LORA_MSG_MAX_LEN + 1] = {};
 
@@ -552,12 +556,19 @@ static void lora_mesh_task(void *param)
     lora_log_push(start_line);
 
     for (;;) {
-        if (lora_auto_announce_on_open && !lora_announce_req &&
+        if (lora_auto_announce_on && !lora_announce_req &&
             (uint32_t)(millis() - lora_auto_announce_ms) >= LORA_AUTO_ANNOUNCE_INTERVAL_MS) {
             lora_announce_req = true;
             lora_announce_show_toast = false;
             lora_auto_announce_ms = millis();
             lora_log_push("[TX] Auto announce queued");
+        }
+
+        if (lora_heartbeat_on && !lora_heartbeat_req &&
+            (uint32_t)(millis() - lora_heartbeat_ms) >= LORA_AUTO_ANNOUNCE_INTERVAL_MS) {
+            lora_heartbeat_req = true;
+            lora_heartbeat_ms = millis();
+            lora_log_push("[TX] Heartbeat queued");
         }
 
         // Frequency change from popup
@@ -594,6 +605,26 @@ static void lora_mesh_task(void *param)
                 um_toast_show(LV_SYMBOL_UPLOAD, "LoRa announce sent");
                 lora_announce_show_toast = false;
             }
+        }
+
+        if (lora_heartbeat_req) {
+            lora_heartbeat_req = false;
+            static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+            MeshPacket pkt = {};
+            pkt.type       = MESH_TYPE_DATA;
+            pkt.ttl        = 4;
+            pkt.msgId      = esp_random() % 1000000000u;
+            memcpy(pkt.destMac, broadcast, 6);
+            memcpy(pkt.srcMac,  lora_my_mac, 6);
+            pkt.appId      = 0x05;
+            char hb_msg[LORA_MSG_MAX_LEN];
+            snprintf(hb_msg, sizeof(hb_msg), "[heartbeat] " NODE_NAME);
+            pkt.payloadLen = (uint8_t)strlen(hb_msg);
+            memcpy(pkt.payload, hb_msg, pkt.payloadLen);
+            lora_tx_packet(&pkt);
+            char hb_line[LORA_LOG_COL];
+            snprintf(hb_line, sizeof(hb_line), "[TX] Heartbeat on %.3f MHz", lora_freqs[lora_freq_idx]);
+            lora_log_push(hb_line);
         }
 
         if (lora_msg_send_req) {
@@ -685,12 +716,17 @@ static void lora_timer_cb(lv_timer_t *t)
     }
 
     if (lora_auto_lbl) {
-        if (lora_auto_announce_on_open) {
+        bool any = lora_auto_announce_on || lora_heartbeat_on;
+        if (lora_auto_announce_on && lora_heartbeat_on) {
+            lv_label_set_text(lora_auto_lbl, LV_SYMBOL_UPLOAD " " LV_SYMBOL_BELL);
+        } else if (lora_auto_announce_on) {
             lv_label_set_text(lora_auto_lbl, LV_SYMBOL_UPLOAD);
-            lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
+        } else if (lora_heartbeat_on) {
+            lv_label_set_text(lora_auto_lbl, LV_SYMBOL_BELL);
         } else {
             lv_label_set_text(lora_auto_lbl, "");
         }
+        lv_obj_set_style_text_color(lora_auto_lbl, any ? um_col_warn() : um_col_text_inactive(), LV_PART_MAIN);
     }
 
     if (lora_info_lbl) {
@@ -925,7 +961,7 @@ static void lora_popup_open()
         lora_pwr_idx = (int)lv_dropdown_get_selected((lv_obj_t *)lv_event_get_target(e));
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
-    // --- Auto announce ---
+    // --- Announce on open ---
     lv_obj_t *auto_row = lv_obj_create(lora_popup_cont);
     lv_obj_set_width(auto_row, lv_pct(100));
     lv_obj_set_height(auto_row, LV_SIZE_CONTENT);
@@ -938,12 +974,12 @@ static void lora_popup_open()
     lv_obj_set_flex_align(auto_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t *auto_lbl = lv_label_create(auto_row);
-    lv_label_set_text(auto_lbl, "Auto announce (after open - 120sec)");
+    lv_label_set_text(auto_lbl, "Announce on open (A06)");
     lv_obj_set_style_text_color(auto_lbl, um_col_text_dim(), LV_PART_MAIN);
     lv_obj_set_flex_grow(auto_lbl, 1);
 
     lv_obj_t *auto_sw = lv_switch_create(auto_row);
-    if (lora_auto_announce_on_open) lv_obj_add_state(auto_sw, LV_STATE_CHECKED);
+    if (lora_announce_on_open) lv_obj_add_state(auto_sw, LV_STATE_CHECKED);
     lv_obj_add_flag(auto_sw, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_set_style_bg_color(auto_sw, um_col_divider(), LV_PART_MAIN);
     lv_obj_set_style_bg_color(auto_sw, um_col_cyan(),
@@ -954,8 +990,73 @@ static void lora_popup_open()
     lv_obj_add_event_cb(auto_sw, [](lv_event_t *e) {
         um_haptic_select();
         lv_obj_t *sw = (lv_obj_t *)lv_event_get_target(e);
-        lora_auto_announce_on_open = lv_obj_has_state(sw, LV_STATE_CHECKED);
+        lora_announce_on_open = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+
+    // --- Auto announce every 120s ---
+    lv_obj_t *ann_row = lv_obj_create(lora_popup_cont);
+    lv_obj_set_width(ann_row, lv_pct(100));
+    lv_obj_set_height(ann_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(ann_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(ann_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(ann_row, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(ann_row, 8, LV_PART_MAIN);
+    lv_obj_clear_flag(ann_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(ann_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(ann_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *ann_lbl2 = lv_label_create(ann_row);
+    lv_label_set_text(ann_lbl2, "Auto announce every 120s (A06)");
+    lv_obj_set_style_text_color(ann_lbl2, um_col_text_dim(), LV_PART_MAIN);
+    lv_obj_set_flex_grow(ann_lbl2, 1);
+
+    lv_obj_t *ann_sw = lv_switch_create(ann_row);
+    if (lora_auto_announce_on) lv_obj_add_state(ann_sw, LV_STATE_CHECKED);
+    lv_obj_add_flag(ann_sw, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_set_style_bg_color(ann_sw, um_col_divider(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(ann_sw, um_col_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_color(ann_sw, um_col_text_hint(), LV_PART_KNOB);
+    lv_obj_set_style_bg_color(ann_sw, um_col_text(),
+                              (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_KNOB));
+    lv_obj_add_event_cb(ann_sw, [](lv_event_t *e) {
+        um_haptic_select();
+        lv_obj_t *sw = (lv_obj_t *)lv_event_get_target(e);
+        lora_auto_announce_on = lv_obj_has_state(sw, LV_STATE_CHECKED);
         lora_auto_announce_ms = millis();
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+
+    // --- Heartbeat ---
+    lv_obj_t *hb_row = lv_obj_create(lora_popup_cont);
+    lv_obj_set_width(hb_row, lv_pct(100));
+    lv_obj_set_height(hb_row, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(hb_row, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(hb_row, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(hb_row, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(hb_row, 8, LV_PART_MAIN);
+    lv_obj_clear_flag(hb_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(hb_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(hb_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *hb_lbl = lv_label_create(hb_row);
+    lv_label_set_text(hb_lbl, "Heartbeat A05 (every 120sec)");
+    lv_obj_set_style_text_color(hb_lbl, um_col_text_dim(), LV_PART_MAIN);
+    lv_obj_set_flex_grow(hb_lbl, 1);
+
+    lv_obj_t *hb_sw = lv_switch_create(hb_row);
+    if (lora_heartbeat_on) lv_obj_add_state(hb_sw, LV_STATE_CHECKED);
+    lv_obj_add_flag(hb_sw, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_set_style_bg_color(hb_sw, um_col_divider(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(hb_sw, um_col_cyan(),
+                              (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_MAIN));
+    lv_obj_set_style_bg_color(hb_sw, um_col_text_hint(), LV_PART_KNOB);
+    lv_obj_set_style_bg_color(hb_sw, um_col_text(),
+                              (lv_style_selector_t)((int)LV_STATE_CHECKED | (int)LV_PART_KNOB));
+    lv_obj_add_event_cb(hb_sw, [](lv_event_t *e) {
+        um_haptic_select();
+        lv_obj_t *sw = (lv_obj_t *)lv_event_get_target(e);
+        lora_heartbeat_on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+        lora_heartbeat_ms = millis();
     }, LV_EVENT_VALUE_CHANGED, NULL);
 
     // --- Send Test button ---
@@ -1044,19 +1145,25 @@ static void lora_popup_open()
     lv_obj_set_style_shadow_width(def_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(def_btn, 6, LV_PART_MAIN);
     // capture dropdowns so we can reset them visually too
-    struct DefCtx { lv_obj_t *freq_dd; lv_obj_t *sf_dd; lv_obj_t *pwr_dd; };
+    struct DefCtx { lv_obj_t *freq_dd; lv_obj_t *sf_dd; lv_obj_t *pwr_dd; lv_obj_t *auto_sw; lv_obj_t *ann_sw; lv_obj_t *hb_sw; };
     static DefCtx def_ctx;
-    def_ctx = { freq_dd, sf_dd, pwr_dd };
+    def_ctx = { freq_dd, sf_dd, pwr_dd, auto_sw, ann_sw, hb_sw };
     lv_obj_set_user_data(def_btn, &def_ctx);
     lv_obj_add_event_cb(def_btn, [](lv_event_t *e) {
         um_haptic_select();
         DefCtx *ctx = (DefCtx *)lv_obj_get_user_data((lv_obj_t *)lv_event_get_target(e));
-        lora_freq_idx = LORA_DEFAULT_FREQ_IDX;  // 868.000 MHz
-        lora_sf_idx   = LORA_DEFAULT_SF_IDX;    // SF9  — Balanced
-        lora_pwr_idx  = LORA_DEFAULT_PWR_IDX;   // 22 dBm — Boost
+        lora_freq_idx = LORA_DEFAULT_FREQ_IDX;
+        lora_sf_idx   = LORA_DEFAULT_SF_IDX;
+        lora_pwr_idx  = LORA_DEFAULT_PWR_IDX;
+        lora_announce_on_open = false;
+        lora_auto_announce_on = false;
+        lora_heartbeat_on     = false;
         lv_dropdown_set_selected(ctx->freq_dd, (uint16_t)lora_freq_idx);
         lv_dropdown_set_selected(ctx->sf_dd,   (uint16_t)lora_sf_idx);
         lv_dropdown_set_selected(ctx->pwr_dd,  (uint16_t)lora_pwr_idx);
+        lv_obj_clear_state(ctx->auto_sw, LV_STATE_CHECKED);
+        lv_obj_clear_state(ctx->ann_sw,  LV_STATE_CHECKED);
+        lv_obj_clear_state(ctx->hb_sw,   LV_STATE_CHECKED);
     }, LV_EVENT_CLICKED, NULL);
     lv_obj_t *def_lbl = lv_label_create(def_btn);
     lv_label_set_text(def_lbl, LV_SYMBOL_REFRESH "  Defaults");
@@ -1090,6 +1197,8 @@ static void lora_popup_open()
         lv_group_add_obj(g, sf_dd);
         lv_group_add_obj(g, pwr_dd);
         lv_group_add_obj(g, auto_sw);
+        lv_group_add_obj(g, ann_sw);
+        lv_group_add_obj(g, hb_sw);
         lv_group_add_obj(g, test_btn);
         lv_group_add_obj(g, ann_btn);
         lv_group_add_obj(g, apply_btn);
@@ -1307,7 +1416,7 @@ void um_lora_create()
 
     lora_screen_active    = true;
     lora_test_req        = false;
-    lora_announce_req    = lora_auto_announce_on_open;
+    lora_announce_req    = lora_announce_on_open;
     lora_freq_change_req = false;
     lora_status_state    = LORA_STATUS_LISTENING;
     lora_announce_show_toast = false;
@@ -1319,8 +1428,8 @@ void um_lora_create()
         lora_log_dirty = false;
     }
 
-    if (lora_auto_announce_on_open)
-        lora_log_push("[TX] Auto announce queued");
+    if (lora_announce_on_open)
+        lora_log_push("[TX] Announce on open queued");
 
     // --- Root container ---
     lora_root = lv_obj_create(lv_scr_act());
@@ -1367,7 +1476,7 @@ void um_lora_create()
     lv_obj_clear_flag(hdr_actions, LV_OBJ_FLAG_SCROLLABLE);
 
     lora_auto_lbl = lv_label_create(hdr_actions);
-    lv_label_set_text(lora_auto_lbl, lora_auto_announce_on_open ? LV_SYMBOL_UPLOAD : "");
+    lv_label_set_text(lora_auto_lbl, (lora_auto_announce_on || lora_heartbeat_on) ? LV_SYMBOL_UPLOAD : "");
     lv_obj_set_style_text_color(lora_auto_lbl, um_col_warn(), LV_PART_MAIN);
 
     lora_compose_btn = lv_btn_create(hdr_actions);
